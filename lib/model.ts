@@ -1,4 +1,4 @@
-// Token Radar's model (radar-21): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-22): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-21';
+export const MODEL_VERSION = 'radar-22';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -505,11 +505,16 @@ function holdDaysFor(age: number | null): number {
   return 30;
 }
 
+/** "a" or "an" before a protocol name: the shapes wrote "a" before every name, so ten rows read "into a Upshift vault", "a Armitage", "a Arrakis" and the like. */
+function articleFor(name: string): string {
+  return /^[AEIOU]/i.test(name) ? 'an' : 'a';
+}
+
 /** The category's one action, in the words a farmer can follow. */
 function actionFor(p: SnapshotProtocol, capital: number, chain: string): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
-  if (c.includes('collateral market')) return `Deposit $${capital} of wstETH into a ${name} vault on ${chain}, delegate the collateral to an operator securing a network, and keep the vault shares in your wallet.`;
+  if (c.includes('collateral market')) return `Deposit $${capital} of wstETH into ${articleFor(name)} ${name} vault on ${chain}, delegate the collateral to an operator securing a network, and keep the vault shares in your wallet.`;
   if (c.includes('interest rate')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain} and open one small long or short position on a funding-rate market, then hold it to maturity.`;
   if (c.includes('uncollateralized')) return `Deposit $${capital} of USDC into the ${name} credit market on ${chain} to fund uncollateralized loans and keep the yield-bearing receipt token in your wallet.`;
   // A CDP takes the collateral its own vaults accept, never a stablecoin
@@ -531,8 +536,8 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   // "dex" — so Set Protocol's plan told its farmer to LP into a pool
   // instead of buying its index token; the index shape below it was
   // unreachable. The test is now the category itself.
-  if (c.includes('leveraged farm')) return `Deposit $${capital} of USDC into a ${name} leveraged vault on ${chain} and keep the vault receipt token in your wallet.`;
-  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Deposit $${capital} of USDC into a ${name} vault on ${chain} and keep the vault shares in your wallet.`;
+  if (c.includes('leveraged farm')) return `Deposit $${capital} of USDC into ${articleFor(name)} ${name} leveraged vault on ${chain} and keep the vault receipt token in your wallet.`;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Deposit $${capital} of USDC into ${articleFor(name)} ${name} vault on ${chain} and keep the vault shares in your wallet.`;
   if (c.includes('perpetual') || c.includes('derivative')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain}, open one small hedged trade, then close it.`;
   if (c.includes('prediction')) return `Fund your ${name} account with $${capital} on ${chain} and place one small market position.`;
   if (c.includes('stable')) return `Mint or deposit $${capital} of the stable asset through ${name} on ${chain} and hold it in your wallet.`;
@@ -543,7 +548,7 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   if (c.includes('rwa')) return `Buy or mint $${capital} of ${name}'s yield-bearing asset on ${chain} and hold it for the full period.`;
   if (c.includes('insurance')) return `Buy $${capital} of cover from ${name} on ${chain} and keep the policy active.`;
   if (c.includes('basis') || c.includes('options')) return `Deposit $${capital} of USDC into ${name}'s strategy on ${chain} and keep the position open.`;
-  if (c.includes('liquidity manager')) return `Deposit $${capital} of USDC into a ${name} managed pool on ${chain} and keep the managed position open.`;
+  if (c.includes('liquidity manager')) return `Deposit $${capital} of USDC into ${articleFor(name)} ${name} managed pool on ${chain} and keep the managed position open.`;
   if (c.includes('liquid')) return `Deposit $${capital} into ${name} on ${chain} and keep the receipt token in your wallet.`;
   if (c === 'chain') return `Move $${capital} of USDC onto ${name} through its official bridge and hold the balance in your wallet on the network.`;
   if (c.includes('staking pool')) {
@@ -1116,19 +1121,60 @@ const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
     exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then request a withdrawal of the vault shares from ${p.name} (the onycSOL vault processes withdrawals weekly, so allow extra time), close the log and retire the wallet.`,
   },
   // Figure Markets Prime is a lender-side marketplace, not a borrow
-  // market: Democratized Prime lets users lend USDC (or USD, YLDS or
-  // crypto) into pools that fund HELOC-backed loans, while the
-  // Crypto-Backed Loan side posts crypto — BTC, ETH or SOL — as
-  // collateral, never USDC. The lending shape would tell its farmer to
-  // supply USDC as collateral and borrow against it, then repay the
-  // borrow — there is no borrow-against-your-supply on either side.
-  // (Figure Markets: Democratized Prime; SEC Form 497Ad.)
+  // market: Democratized Prime's pools are a YLDS HELOC pool, which
+  // takes YLDS (deposit USD, buy YLDS, lend into the pool), and
+  // USD/USDC/USDT margin pools — so USDC lends into a margin pool,
+  // not the HELOC pool, while the Crypto-Backed Loan side posts
+  // crypto — BTC, ETH or SOL — as collateral, never USDC. The
+  // lending shape would tell its farmer to supply USDC as collateral
+  // and borrow against it, then repay the borrow — there is no
+  // borrow-against-your-supply on either side. Radar-21 corrected
+  // this row to lend USDC into a Democratized Prime pool to fund
+  // HELOC-backed loans; that conflated the two pools, and it is
+  // refined here. (Figure Markets: Democratized Prime; Figure: Prime
+  // lending pools.)
   'figure-markets-prime': {
-    why: 'DefiLlama lists Figure Markets Prime under Lending, so the lending shape would tell its farmer to supply USDC as collateral and borrow against it — but Democratized Prime is a lender-side marketplace: users lend USDC into pools that fund HELOC-backed loans, and the borrow side posts crypto as collateral, never USDC.',
-    action: (p, capital, chain) => `Lend $${capital} of USDC into a Democratized Prime pool on ${p.name} on ${chain} to fund HELOC-backed loans and keep the pool position in your wallet.`,
-    weekly: (p) => `Check the yield the Democratized Prime pool paid that week on ${p.name} and leave it compounding instead of withdrawing it.`,
-    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the pool balance, the yield it paid that week and the loans it funds.`,
-    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the deposit from the Democratized Prime pool on ${p.name}, close the log and retire the wallet.`,
+    why: 'DefiLlama lists Figure Markets Prime under Lending, so the lending shape would tell its farmer to supply USDC as collateral and borrow against it — but Democratized Prime is a lender-side marketplace: its pools are a YLDS HELOC pool, which takes YLDS, and USD/USDC/USDT margin pools, so USDC lends into a margin pool, not the HELOC pool, and the borrow side posts crypto as collateral, never USDC.',
+    action: (p, capital, chain) => `Lend $${capital} of USDC into a Democratized Prime margin pool on ${p.name} on ${chain} and keep the pool position in your wallet.`,
+    weekly: (p) => `Check the yield the Democratized Prime margin pool paid that week on ${p.name} and leave it compounding instead of withdrawing it.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the pool balance and the yield it paid that week.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the deposit from the Democratized Prime margin pool on ${p.name}, close the log and retire the wallet.`,
+  },
+  // Native Credit Pool is a single-sided supply pool, not a borrow
+  // market: suppliers deposit assets that market makers borrow for
+  // trading, to deepen spot liquidity — nobody posts collateral and
+  // nobody borrows against a deposit, so there is no health factor
+  // to track and no borrow to repay. The supply asset is verifiable
+  // too: USDC is the largest asset in the pool, $6.54M of $19.03M on
+  // 14 November 2026. The lending shape would tell its farmer to
+  // supply USDC as collateral and borrow against it, repay part of
+  // the borrow every week and track the health factor — every step
+  // of that is the wrong side of the pool. (DefiLlama: Native Credit
+  // Pool; DefiLlama API token breakdown, 14 Nov 2026.)
+  'native-credit-pool': {
+    why: 'DefiLlama lists Native Credit Pool under Lending, so the lending shape would tell its farmer to supply USDC as collateral and borrow against it — but Native Credit Pool is a single-sided supply pool: suppliers deposit assets that market makers borrow for trading, nobody posts collateral and nobody borrows against a deposit, and USDC is the largest asset supplied ($6.54M on 14 Nov 2026).',
+    action: (p, capital, chain) => `Supply $${capital} of USDC to the single-sided ${p.name} on ${chain}, where market makers borrow the supplied assets for trading, and keep the pool position in your wallet.`,
+    weekly: (p) => `Check the borrow interest the ${p.name} paid that week and leave it compounding instead of withdrawing it.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the supplied balance, the borrow interest it earned that week and the active loans it funds.`,
+    claim: (p) => `Before you withdraw, check ${p.name}'s own site for any rewards announcement and claim only from the link it publishes, never from a link in a message; if it announces no rewards, there is nothing to claim.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the supplied USDC from ${p.name}, close the log and retire the wallet.`,
+  },
+  // BounceBit Prime is an institutional product, not a retail vault:
+  // it is built for institutional and accredited investors, with
+  // KYC/AML, custodial management and transparent reporting, and its
+  // flagship BENJI fund is for qualified investors. The basis shape
+  // would tell its farmer to deposit USDC into the strategy and
+  // rebalance it weekly — a retail wallet cannot simply deposit, and
+  // there is nothing to rebalance by hand in a managed strategy. Its
+  // plan starts with KYC and qualified-investor onboarding, and only
+  // then deposits. (BounceBit docs; Blockworks, Jun 2025;
+  // FinanceFeeds, Aug 2025.)
+  'bouncebit-prime': {
+    why: 'DefiLlama lists BounceBit Prime under Basis Trading, so the basis shape would tell its farmer to deposit USDC into its strategy — but BB Prime is an institutional product: it is built for institutional and accredited investors, with KYC/AML, custodial management and transparent reporting, and its flagship BENJI fund is for qualified investors, so a retail wallet cannot simply deposit.',
+    action: (p, capital, chain) => `Complete ${p.name}'s KYC and qualified-investor onboarding first — BB Prime is institutional-only — then deposit $${capital} of USDC into its strategy on ${chain} and keep the position open.`,
+    weekly: (p) => `Check the yield the ${p.name} strategy paid that week and leave it compounding instead of withdrawing it.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the strategy balance and the yield it earned that week.`,
+    claim: (p) => `Before you withdraw, check ${p.name}'s own site for any rewards announcement and claim only from the link it publishes, never from a link in a message; if it announces no rewards, there is nothing to claim.`,
   },
 };
 

@@ -6,6 +6,45 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-22)
+
+Radar-22 keeps radar-21's formula and every implied value, and fixes
+three more farm plans plus one grammar fault the board has carried
+since the start. First, Native Credit Pool (rank 130), the open item
+from round 18, is SETTLED with a fix: DefiLlama calls it a
+single-sided supply pool for market makers to borrow from, so the
+lending shape's supply-as-collateral-and-borrow-against-it is wrong
+in both directions — nobody posts collateral and nobody borrows
+against a deposit — and the supply asset is now verifiable too:
+USDC is the largest asset in the pool, $6.54M of $19.03M on
+14 November 2026, per DefiLlama's own token breakdown, so its plan
+now supplies USDC to the pool and earns the borrow interest market
+makers pay, with no health factor to track and no borrow to repay.
+Second, BounceBit Prime (rank 96), the other open item from round
+18, is SETTLED with a fix: BB Prime is an institutional product for
+institutional and accredited investors, with KYC/AML, custodial
+management and transparent reporting, and its flagship BENJI fund is
+for qualified investors — so the basis shape's plain "deposit $50 of
+USDC into the strategy" sends a retail wallet at a gate it cannot
+pass, and its plan now starts with KYC and qualified-investor
+onboarding. Third, Figure Markets Prime (rank 34), corrected in
+radar-21, is refined: Figure's own Prime page lists a YLDS HELOC
+pool, which takes YLDS (deposit USD, buy YLDS, lend into the pool),
+and USD/USDC/USDT margin pools — so USDC lends into a margin pool,
+not the HELOC pool, and its plan now says so. Fourth, the article:
+ten rows read "into a Upshift vault", "a Armitage", "a Arrakis" and
+the like, because the shapes wrote "a" before every protocol name;
+the shapes now write "an" before a vowel-initial name. Two open
+items are settled with no fix: the Monolith "ChainSecurity audit,
+Apr 2026" attribution is right — ChainSecurity's Monolith re-audit
+has a final version dated 14 April 2026, and the Electisec/yAudit
+review of June 2025 is a separate, earlier audit — and Loopscale is
+not in the snapshot at all, so its fixed-term loans need no plan.
+Twenty-six of 195 plans are now corrected in the one table. The
+board is unchanged: same 195 rows, same ranks, same implied values;
+only farm plans move, on 13 rows (3 corrections plus the article on
+10 rows), and the screenshots are retaken for the radar-22 label.
+
 ## The model (radar-21)
 
 Radar-21 keeps radar-20's formula and every implied value, and fixes three
@@ -449,7 +488,7 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). Twenty-four plans are corrected against the
+farm runs; B2 is gas only on the Hub). Twenty-six plans are corrected against the
 snapshot's own record, in one table (see Snapshot corrections below): Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
 plan stakes BTC for B2 rewards instead of bridging onto a network; Firelight
@@ -463,7 +502,7 @@ DeFi Saver is a management layer that takes no deposits, so its plan opens a
 position through it and automates it; Bittensor dTAO is a staking system, not
 an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points
 program, so its plan checks the rewards page that pays in pUSD instead of a
-claim page. Twenty-four plans in all. The weekly action, the number worth
+claim page. Twenty-six plans in all. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
@@ -481,7 +520,7 @@ them at (flat, and 365 days), never as the oldest or the fastest.
 
 ## Snapshot corrections
 
-Twenty-four farm plans follow the protocol's own documentation instead of the
+Twenty-six farm plans follow the protocol's own documentation instead of the
 snapshot's category, because the snapshot's record mislabels the protocol.
 They live in one table, PLAN_CORRECTIONS in lib/model.ts, keyed by slug,
 each entry stating why the record is wrong and giving only the steps the
@@ -621,10 +660,29 @@ and the scoring never names a protocol.
 - Figure Markets Prime (rank 34): DefiLlama lists it under Lending, and
   the lending shape would tell its farmer to supply USDC as collateral
   and borrow against it — but Democratized Prime is a lender-side
-  marketplace: users lend USDC into pools that fund HELOC-backed loans,
-  and the borrow side posts crypto as collateral, never USDC, so its plan
-  lends USDC into a Democratized Prime pool instead (Figure Markets:
-  Democratized Prime; SEC Form 497Ad).
+  marketplace: its pools are a YLDS HELOC pool, which takes YLDS
+  (deposit USD, buy YLDS, lend into the pool), and USD/USDC/USDT margin
+  pools, so USDC lends into a margin pool, not the HELOC pool, and the
+  borrow side posts crypto as collateral, never USDC, so its plan lends
+  USDC into a Democratized Prime margin pool instead (Figure Markets:
+  Democratized Prime; Figure: Prime lending pools).
+- Native Credit Pool (rank 130): DefiLlama lists it under Lending, and
+  the lending shape would tell its farmer to supply USDC as collateral
+  and borrow against it — but Native Credit Pool is a single-sided
+  supply pool: suppliers deposit assets that market makers borrow for
+  trading, nobody posts collateral and nobody borrows against a deposit,
+  and USDC is the largest asset supplied ($6.54M on 14 Nov 2026), so its
+  plan supplies USDC to the pool and earns the borrow interest market
+  makers pay (DefiLlama: Native Credit Pool; DefiLlama API token
+  breakdown, 14 Nov 2026).
+- BounceBit Prime (rank 96): DefiLlama lists it under Basis Trading,
+  and the basis shape would tell its farmer to deposit USDC into its
+  strategy — but BB Prime is an institutional product for institutional
+  and accredited investors, with KYC/AML, custodial management and
+  transparent reporting, and its flagship BENJI fund is for qualified
+  investors, so a retail wallet cannot simply deposit, and its plan
+  starts with KYC and qualified-investor onboarding (BounceBit docs;
+  Blockworks, Jun 2025; FinanceFeeds, Aug 2025).
 
 ## Run it
 
