@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-11). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-12). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -197,10 +197,21 @@
   }
 
   function lede() {
+    // The watchlist is the house's list, not every protocol that fits its
+    // description: rankable protocols above the floor the list leaves out
+    // are counted here, because the house's rule also leaves out a product
+    // of a protocol whose token already trades, and the snapshot does not
+    // name the parent, so the list is what the rule produced. Calling the
+    // watchlist every protocol at or above the floor would be wrong on
+    // this snapshot: Sentora Curator sits at $2.76B and is not on it.
+    var aboveFloor = DATA.rows.filter(function (r) { return !r.watchlist && r.tvl_usd >= DATA.floor_usd; });
+    var biggest = aboveFloor.slice().sort(function (a, b) { return b.tvl_usd - a.tvl_usd; })[0];
+    var floorM = Math.round(DATA.floor_usd / 1e6);
+    var ledeText = 'The watchlist is the floor: the house\u2019s list of ' + DATA.watchlist_size + ' protocols with at least $' + floorM + 'M of TVL that record no token. It is a list, not every protocol that fits: ' + aboveFloor.length + ' rankable pre-token protocols above the floor are not on it' + (biggest ? ', the largest ' + biggest.name + ' at ' + fmtUsd(biggest.tvl_usd) : '') + '. The early radar adds all ' + DATA.early_size + ' rankable pre-token protocols the watchlist leaves out, whatever their size, so the board holds ' + DATA.board_size + ' rows. Implied value is a model built from the snapshot, not a promise and not a prediction of a launch.';
     return el('section', { class: 'lede' },
       el('div', null,
-        el('h1', { text: DATA.watchlist_size + ' watchlist protocols, ranked by implied value' }),
-        el('p', { text: 'The watchlist is the floor: every protocol with at least $' + Math.round(DATA.floor_usd / 1e6) + 'M of TVL that records no token. The early radar adds all ' + DATA.early_size + ' rankable pre-token protocols the watchlist leaves out, whatever their size, so the board holds ' + DATA.board_size + ' rows. Implied value is a model built from the snapshot, not a promise and not a prediction of a launch.' })
+        el('h1', { text: DATA.board_size + ' pre-token protocols, ranked by implied value' }),
+        el('p', { text: ledeText })
       ),
       el('div', { class: 'facts' },
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size }), el('small', { text: 'every watchlist slug is on the board' })),

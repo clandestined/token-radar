@@ -1,4 +1,4 @@
-// Token Radar (radar-11): the entry program, Node 22, standard library only.
+// Token Radar (radar-12): the entry program, Node 22, standard library only.
 //
 // It reads the sealed snapshot from /input/snapshot.json (or --input
 // <file|dir>), scores every rankable pre-token protocol with the model in

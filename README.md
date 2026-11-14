@@ -6,7 +6,23 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-11)
+## The model (radar-12)
+
+Radar-12 keeps radar-11's formula and every implied value, and fixes two
+things a reader could catch it on. First, the screenshots still showed the
+radar-10 build: they were last retaken in radar-10, so all three said
+"radar-10 model" while the page renders radar-11. They are retaken here,
+so the screenshots and the code agree on the version. Second, the page's
+own heading and lede overstated the watchlist: the heading said the board
+ranks 40 watchlist protocols, and the lede said the watchlist is every
+protocol with at least $50M of TVL that records no token, but the board
+itself shows 18 rankable protocols above the floor the list leaves out,
+Sentora Curator at $2.76B the largest, because the house's rule also
+leaves out a product of a protocol whose token already trades, which the
+snapshot does not name. The heading now names the 195 rows the board
+ranks, and the lede names the list as the house's list and counts the
+protocols above the floor it leaves out, from the board itself. The board
+is unchanged: same 195 rows, same ranks, same implied values.
 
 Radar-11 keeps radar-10's formula and every implied value, and fixes one
 place where the dashboard did not follow the rule radar-10 stated. The
