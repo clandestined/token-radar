@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-14). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-15). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -409,7 +409,7 @@
         el('td', { class: 'num', text: 'live' }),
         el('td', null, el('div', { class: 'name' }, el('b', { text: r.name }), el('span', { class: 'sub', text: (r.category || 'Other') + ' on ' + (r.chains && r.chains.length ? r.chains.slice(0, 2).join(', ') : 'an unnamed chain') }))),
         el('td', { class: 'num', text: fmtUsd(r.tvl_usd) }),
-        el('td', { class: 'num ' + (r.change_7d !== null && r.change_7d >= 0 ? 'pos' : 'neg'), text: fmtPct(r.change_7d) }),
+        el('td', { class: 'num ' + (r.change_7d === null ? '' : r.change_7d >= 0 ? 'pos' : 'neg'), text: fmtPct(r.change_7d) }),
         el('td', { class: 'num', text: fmtUsd(r.mcap_usd) }),
         el('td', { class: 'num', text: r.multiple === null ? 'n/a' : r.multiple.toFixed(2) + 'x' }),
         el('td', null, el('span', { class: 'status live', text: 'already trades' }))
@@ -436,7 +436,7 @@
     var saturnText = saturn ? ' One watchlist protocol is ranked although the wrapper rule would leave it out: Saturn, a Stablecoin Wrapper, sits at rank ' + saturn.rank + ' because the watchlist is the floor and a watchlist slug is always ranked.' : '';
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
+      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. The scoring never special-cases a protocol name, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
       el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories priced here have fewer than three live peers, so most multiples would rest on one or two protocols without it. Shrinking in log space matters because the old arithmetic shrink clamped the raw median first: seven single-peer categories, from Options at 1.51x to Prediction Market at 400.20x, all priced at one identical multiple, and a category whose peers trade at 0.002x was lifted to the market by the floor. Now each prices from its own peer, still pulled most of the way to the market, and still capped. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(4) + 'x') + '.' }),
       el('div', { class: 'formula' },
         'multiple = exp((peers x ln(categoryMedian) + ' + m.shrink_peers + ' x ln(marketMedian)) / (peers + ' + m.shrink_peers + ')), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'

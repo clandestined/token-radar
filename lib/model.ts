@@ -1,4 +1,4 @@
-// Token Radar's model (radar-14): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-15): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -19,7 +19,7 @@
 // aside and why, instead of taking the board's completeness on trust.
 //
 // Implied value follows only from the snapshot's own figures, through one
-// function applied to every row. No protocol name is ever special-cased.
+// function applied to every row. No protocol name is ever special-cased in the scoring.
 //
 //   comparable  = median(mcap_usd / tvl_usd) over the live-token protocols
 //                 in the same category, shrunk toward the market median
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-14';
+export const MODEL_VERSION = 'radar-15';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -611,11 +611,12 @@ function trackFor(p: SnapshotProtocol): string {
  * (its tokenomics docs: every transaction pays 0.01 USDST, and paying gas in
  * STRATO is the planned design, not the live one), and Qubic's is QUBIC as
  * energy (plain transfers are feeless, but smart-contract execution burns
- * QUBIC, so a farm's contract calls still need it). Tempo has no native gas
+ * QUBIC, so a farm's contract calls still need it). BSquared's is BTC: the
+ * farm runs on the B² rollup (B² Mainnet, chain 223), whose native token is
+ * BTC, while B2 is gas only on the B² Hub (chain 213), the data-availability
+ * layer a farmer never transacts on. Tempo has no native gas
  * token: fees are paid in any supported USD stablecoin, so the step names
- * that instead of a ticker. One chain stays on the generic wording because
- * no public record settles its gas token: BSquared (B2 pays gas on its hub,
- * BTC on its rollup, and the sources disagree on which a farmer needs).
+ * that instead of a ticker.
  * Proton returns null: XPR Network charges no gas fee, so the wallet step
  * says so instead of naming a token that does not exist. */
 function gasTokenFor(chain: string): string | null {
@@ -626,7 +627,7 @@ function gasTokenFor(chain: string): string | null {
     Stellar: 'XLM', Flare: 'FLR', Berachain: 'BERA', Mantle: 'MNT', Sonic: 'S', Sei: 'SEI', Celo: 'CELO', Ronin: 'RON', Bittensor: 'TAO', Algorand: 'ALGO', Ripple: 'XRP', Starknet: 'STRK', Monad: 'MON',
     Arc: 'USDC', Provenance: 'HASH', Plasma: 'XPL', 'Robinhood Chain': 'ETH', RISE: 'ETH', Noble: 'USDC', Manta: 'ETH', Mezo: 'BTC', XION: 'XION',
     'Reya Network': 'ETH', Tempo: 'a USD stablecoin', Stable: 'USDT0', Morph: 'ETH', RSK: 'RBTC', Klaytn: 'KAIA', Kava: 'KAVA', Canton: 'CC',
-    'Bifrost Network': 'BFC', Fluent: 'ETH', Stacks: 'STX', 'Plume Mainnet': 'PLUME', Pharos: 'PROS', Strato: 'USDST', Qubic: 'QUBIC',
+    'Bifrost Network': 'BFC', Fluent: 'ETH', Stacks: 'STX', 'Plume Mainnet': 'PLUME', Pharos: 'PROS', Strato: 'USDST', Qubic: 'QUBIC', BSquared: 'BTC',
   };
   return known[chain] ?? `${chain}'s native gas token`;
 }
@@ -696,19 +697,29 @@ function exitFor(p: SnapshotProtocol): string {
 /**
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
- * and age), never from a hand-written list of names. Step 1 names the gas
+ * and age), with one disclosed exception: Hive Protocol, whose record lists
+ * B²'s own BTC staking pool under category Chain (see below), so the chain
+ * shape would tell its farmer to bridge onto a network the protocol is not.
+ * Step 1 names the gas
  * token of the protocol's own first chain and the protocol itself, and step
  * 4 names the protocol too, so no step is the same string on two rows: steps
  * 1 and 4 used to read identically for every protocol on the same chain
  * (one step-1 string covered 55 rows), which made the plan look templated
  * even where the action differed. The gas token is the chain's own, checked
- * against its documentation, never guessed: 33 of the 34 rows whose first
- * chain was not in the map now name a verified token, and the one chain
+ * against its documentation, never guessed: 32 of the 34 rows whose first
+ * chain was not a household name name a verified token, Tempo names a USD
+ * stablecoin, and the one chain
  * that charges no gas at all (Proton) says so instead of naming a token
  * that does not exist, and its cost lines say the same, so no step prices
- * gas that does not exist. One chain stays on the generic wording because no
- * public record settles its gas token: BSquared, where B2 pays gas on the hub
- * and BTC on the rollup, and the sources disagree on which a farmer needs.
+ * gas that does not exist. No row is left on the generic wording: BSquared
+ * is settled in radar-15 (BTC on the rollup, where the farm runs; B2 is gas
+ * only on the Hub). Radar-14 said 33 of the 34 named a token; recounting
+ * its board, it was 31, because Tempo's stablecoin and Proton's no-gas line
+ * were counted as tokens. Hive Protocol's plan stakes BTC in B² Hive to
+ * safeguard the network and earn B2 rewards, instead of the chain shape's
+ * bridge-onto-the-network action: DefiLlama's own page for it reads "Stake
+ * BTC, safeguard B², and receive $B2 Tokens" (hive.bsquared.network), and
+ * the pool is a pool for depositing BTC to earn B2 and partner rewards.
  * Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
@@ -722,7 +733,30 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const chain = chainOf(p);
   const capital = capitalFor(p);
   const hold = holdDaysFor(age);
-  const action = actionFor(p, capital, chain);
+  // Hive Protocol is the one plan the category cannot shape: its record
+  // lists B² Hive, the network's own BTC staking pool, under category
+  // Chain, so the chain shape would tell its farmer to bridge USDC onto a
+  // network the protocol is not. Its steps stake BTC for B2 rewards
+  // instead, as DefiLlama's own page for it says: "Stake BTC, safeguard
+  // B², and receive $B2 Tokens". The scoring never names a protocol; this
+  // is a farm-plan correction of the snapshot's own record, stated here
+  // and in the README.
+  const isHive = p.slug === 'hive-protocol';
+  const action = isHive
+    ? `Stake $${capital} of BTC in ${p.name} on ${chain} to safeguard the network and earn B2 rewards, and keep the staked position in your wallet.`
+    : actionFor(p, capital, chain);
+  const weekly = isHive
+    ? `Check the B2 rewards ${p.name} shows each week and restake them, or add a small top-up to the stake.`
+    : weeklyActionFor(p);
+  const track = isHive
+    ? `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the staked BTC balance and the B2 rewards earned that week.`
+    : trackFor(p);
+  const claim = isHive
+    ? `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`
+    : claimFor(p);
+  const exit = isHive
+    ? `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unstake the staked BTC from ${p.name}, close the log and retire the wallet.`
+    : exitFor(p);
   const gas = gasTokenFor(chain);
   const noGas = gas === null;
   const walletStep = noGas
@@ -741,7 +775,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: '15 minutes to set up',
     },
     {
-      text: `Use this wallet for ${p.name} alone, and ${weeklyActionFor(p).charAt(0).toLowerCase()}${weeklyActionFor(p).slice(1)}`,
+      text: `Use this wallet for ${p.name} alone, and ${weekly.charAt(0).toLowerCase()}${weekly.slice(1)}`,
       cost: noGas ? 'nothing: transactions carry no gas fee' : 'about $2 of gas a week',
       time: '10 minutes a week',
     },
@@ -751,17 +785,17 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: `${hold} days`,
     },
     {
-      text: trackFor(p),
+      text: track,
       cost: 'nothing but the log',
       time: '5 minutes a week',
     },
     {
-      text: claimFor(p),
+      text: claim,
       cost: 'no fee to check, and never pay to claim',
       time: '10 minutes',
     },
     {
-      text: exitFor(p),
+      text: exit,
       cost: noGas ? 'nothing: transactions carry no gas fee' : 'about $3 of gas to claim',
       time: '15 minutes to claim',
     },

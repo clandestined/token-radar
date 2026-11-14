@@ -6,6 +6,33 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-15)
+
+Radar-15 keeps radar-14's formula and every implied value, and settles the
+last generic row and the one plan the category shape got wrong. First,
+BSquared: the farm runs on the B² rollup (B² Mainnet, chain 223), whose
+native token is BTC, while B2 is gas only on the B² Hub (chain 213), the
+data-availability layer a farmer never transacts on — so Hive Protocol's
+wallet step now says BTC, and no row is left on the generic wording. Second,
+Hive Protocol itself (rank 13): DefiLlama lists B² Hive, the network's own
+BTC staking pool, under category Chain, so the chain shape told its farmer
+to bridge USDC onto a network the protocol is not. Its plan now stakes BTC
+in B² Hive to safeguard the network and earn B2 rewards, as DefiLlama's own
+page for it says ("Stake BTC, safeguard B², and receive $B2 Tokens"). That
+is the entry's only farm plan that names a protocol instead of deriving
+from its category, and it is disclosed in the code and here because the
+snapshot's own record is the thing that is wrong; the scoring still never
+special-cases a name. Third, a recount: radar-14 said 33 of the 34 rows
+whose first chain was not a household name named a real token, but its board
+had 31 — Tempo's stablecoin and Proton's no-gas line were counted as tokens.
+With BSquared settled, 32 of the 34 name a real token, Tempo names a USD
+stablecoin, and Proton says transactions carry no gas fee. The board is
+unchanged: same 195 rows, same ranks, same implied values; only Hive
+Protocol's farm plan moves, and the screenshots are retaken for the
+radar-15 label. One small page fix rides along: the Live token view gave an
+unreported seven-day growth the red "falling" style while printing "n/a";
+it now leaves it unstyled, as the board already did.
+
 ## The model (radar-14)
 
 Radar-14 keeps radar-13's formula and every implied value, and fixes the
@@ -210,13 +237,15 @@ shown with their market caps. Farm plans are seven steps each, derived from
 the protocol's category, chains, TVL and age, with a cost and a time on every
 step, one wallet per protocol so the farm does not look like a Sybil cluster.
 The wallet step names the gas token of the protocol's own first chain,
-checked against the chain's own documentation, never guessed: 33 of the 34
-rows whose first chain was not a household name now name a verified token,
+checked against the chain's own documentation, never guessed: 32 of the 34
+rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
-says transactions carry no gas fee because it charges none. One chain stays
-on the generic wording because no public record settles its gas token
-(BSquared: B2 pays gas on its hub, BTC on its rollup, and the sources
-disagree on which a farmer needs). The weekly action, the number worth
+says transactions carry no gas fee because it charges none. No row is left
+on the generic wording: BSquared is settled (BTC on the rollup, where the
+farm runs; B2 is gas only on the Hub). One plan is shaped by the protocol
+itself, not its category, and is disclosed where it is written: Hive
+Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
+plan stakes BTC for B2 rewards instead of bridging onto a network. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
