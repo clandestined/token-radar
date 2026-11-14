@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-16';
+export const MODEL_VERSION = 'radar-17';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -509,6 +509,8 @@ function holdDaysFor(age: number | null): number {
 function actionFor(p: SnapshotProtocol, capital: number, chain: string): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
+  if (c.includes('collateral market')) return `Deposit $${capital} of wstETH into a ${name} vault on ${chain}, delegate the collateral to an operator securing a network, and keep the vault shares in your wallet.`;
+  if (c.includes('interest rate')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain} and open one small long or short position on a funding-rate market, then hold it to maturity.`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Supply $${capital} of USDC to ${name} on ${chain} as collateral and borrow a small amount against it, then repay the borrow.`;
   if (c.includes('dex') || c.includes('leveraged farm')) return `Provide $${capital} of liquidity to ${name}'s main pool on ${chain} in a balanced pair and keep the position open.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Deposit $${capital} of USDC into a ${name} vault on ${chain} and keep the vault shares in your wallet.`;
@@ -521,13 +523,29 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   if (c.includes('liquidity manager')) return `Deposit $${capital} of USDC into a ${name} managed pool on ${chain} and keep the managed position open.`;
   if (c.includes('liquid')) return `Deposit $${capital} into ${name} on ${chain} and keep the receipt token in your wallet.`;
   if (c === 'chain') return `Move $${capital} of USDC onto ${name} through its official bridge and hold the balance in your wallet on the network.`;
-  if (c.includes('staking pool')) return `Deposit $${capital} of USDC into the ${name} staking pool on ${chain} and keep the staking receipt in your wallet.`;
+  if (c.includes('staking pool')) {
+    // A staking pool stakes its chain's own asset, never a stablecoin: Reti
+    // pools ALGO, Adrastea stakes SOL, Qearn locks QUBIC, and the gas token
+    // of the first chain is that asset on every chain the board stakes on.
+    const asset = gasTokenFor(chain) ?? 'USDC';
+    return `Deposit $${capital} of ${asset} into the ${name} staking pool on ${chain} and keep the staking receipt in your wallet.`;
+  }
   if (c.includes('cedefi')) return `Deposit $${capital} of USDC into ${name}'s managed yield account on ${chain} and keep the account open.`;
   if (c === 'farm') return `Deposit $${capital} of USDC into the ${name} farm on ${chain} and keep the farm position open.`;
   if (c.includes('anchor btc') || c.includes('decentralized btc')) return `Deposit $${capital} of BTC-backed assets through ${name} on ${chain} and hold the receipt token in your wallet.`;
-  if (c.includes('payments')) return `Fund a ${name} payment channel with $${capital} on ${chain} and make one small payment through it.`;
+  if (c.includes('payments')) {
+    // A payment channel is funded in the chain's own asset: a Lightning
+    // channel is funded in BTC (satoshis), not in a stablecoin.
+    const asset = chain === 'Bitcoin' ? 'BTC' : 'USDC';
+    return `Fund a ${name} payment channel with $${capital} of ${asset} on ${chain} and make one small payment through it.`;
+  }
   if (c.includes('otc')) return `Place a $${capital} buy order for an OTC asset on ${name} on ${chain} and hold the asset in your wallet.`;
-  if (c === 'restaking') return `Restake $${capital} of USDC through ${name} on ${chain} and keep the restaking receipt in your wallet.`;
+  if (c === 'restaking') {
+    // Restaking restakes what is already staked: BTC on Bitcoin (b14g pairs
+    // locked BTC with CORE to secure networks), a stablecoin elsewhere.
+    const asset = chain === 'Bitcoin' ? 'BTC' : 'USDC';
+    return `Restake $${capital} of ${asset} through ${name} on ${chain} and keep the restaking receipt in your wallet.`;
+  }
   if (c.includes('governance')) return `Lock $${capital} of USDC in ${name}'s governance vault on ${chain} and vote once with the position.`;
   if (c.includes('crypto card')) return `Load $${capital} of USDC onto the ${name} card on ${chain} and spend a small amount with it.`;
   if (c.includes('index')) return `Buy $${capital} of the ${name} index token on ${chain} and hold it in your wallet.`;
@@ -538,6 +556,8 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
 function weeklyActionFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
+  if (c.includes('collateral market')) return `Check the rewards the ${name} vault paid that week and leave them compounding instead of withdrawing them.`;
+  if (c.includes('interest rate')) return `Check the funding-rate position on ${name} each week and adjust it when the underlying rate moves.`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Repay a small part of the borrow on ${name} and borrow it back, so the position moves every week instead of sitting still.`;
   if (c.includes('dex') || c.includes('leveraged farm')) return `Swap a small amount through ${name}'s main pool each week, alternating the direction, so the wallet trades as well as holds.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Claim any rewards the ${name} vault shows each week and restake them, or add a small top-up to the vault.`;
@@ -568,7 +588,9 @@ function trackFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
   let note: string;
-  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) note = `the borrow amount, the collateral ratio and the health factor.`;
+  if (c.includes('collateral market')) note = `the vault share balance, the operator it is delegated to and any points balance the protocol shows.`;
+  else if (c.includes('interest rate')) note = `the margin balance and the fixed rate the position locked in.`;
+  else if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) note = `the borrow amount, the collateral ratio and the health factor.`;
   else if (c.includes('dex') || c.includes('leveraged farm')) note = `the pool share and the fees the position earned.`;
   else if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) note = `the vault share balance and any points balance the protocol shows.`;
   else if (c.includes('perpetual') || c.includes('derivative')) note = `the margin balance and the outcome of each trade.`;
@@ -639,6 +661,8 @@ function claimFor(p: SnapshotProtocol): string {
   let page: string;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) page = `the ${name} vault's own points or rewards page`;
   else if (c.includes('dex') || c.includes('leveraged farm')) page = `${name}'s own pool incentives or points page`;
+  else if (c.includes('collateral market')) page = `${name}'s own vault rewards page`;
+  else if (c.includes('interest rate')) page = `${name}'s own funding-rate rewards page`;
   else if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) page = `${name}'s own lending rewards or points page`;
   else if (c.includes('perpetual') || c.includes('derivative')) page = `${name}'s own trading rewards page`;
   else if (c.includes('prediction')) page = `${name}'s own market rewards page`;
@@ -671,6 +695,8 @@ function exitFor(p: SnapshotProtocol): string {
   const tail = `, close the log and retire the wallet.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `${head}withdraw the vault shares from ${name}${tail}`;
   if (c.includes('dex') || c.includes('leveraged farm')) return `${head}remove the liquidity from ${name}${tail}`;
+  if (c.includes('collateral market')) return `${head}withdraw the collateral from the ${name} vault${tail}`;
+  if (c.includes('interest rate')) return `${head}close the funding-rate position on ${name}${tail}`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `${head}repay the borrow, withdraw the collateral from ${name}${tail}`;
   if (c.includes('perpetual') || c.includes('derivative')) return `${head}close any open trade, withdraw the margin from ${name}${tail}`;
   if (c.includes('prediction')) return `${head}close any open position on ${name}${tail}`;
@@ -697,12 +723,11 @@ function exitFor(p: SnapshotProtocol): string {
 /**
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
- * and age), with two disclosed exceptions: Hive Protocol, whose record lists
- * B²'s own BTC staking pool under category Chain (see below), so the chain
- * shape would tell its farmer to bridge onto a network the protocol is not;
- * and Firelight, whose record lists it under category Insurance, so the
- * insurance shape would tell its farmer to buy cover Firelight does not
- * sell to users (see below). Step 1 names the gas
+ * and age), except where the snapshot's own record mislabels the protocol:
+ * those plans are corrected in one table, PLAN_CORRECTIONS below, keyed by
+ * slug, each entry naming why the record is wrong and giving only the steps
+ * the record gets wrong; every other step still comes from the category
+ * shape, and the scoring never names a protocol at all. Step 1 names the gas
  * token of the protocol's own first chain and the protocol itself, and step
  * 4 names the protocol too, so no step is the same string on two rows: steps
  * 1 and 4 used to read identically for every protocol on the same chain
@@ -717,18 +742,7 @@ function exitFor(p: SnapshotProtocol): string {
  * is settled in radar-15 (BTC on the rollup, where the farm runs; B2 is gas
  * only on the Hub). Radar-14 said 33 of the 34 named a token; recounting
  * its board, it was 31, because Tempo's stablecoin and Proton's no-gas line
- * were counted as tokens. Hive Protocol's plan stakes BTC in B² Hive to
- * safeguard the network and earn B2 rewards, instead of the chain shape's
- * bridge-onto-the-network action: DefiLlama's own page for it reads "Stake
- * BTC, safeguard B², and receive $B2 Tokens" (hive.bsquared.network), and
- * the pool is a pool for depositing BTC to earn B2 and partner rewards.
- * Firelight's plan stakes FXRP in its Launch Vault for stXRP and Firelight
- * Points, instead of the insurance shape's buy-cover action: Firelight is
- * the underwriting side, not the buyer — a farmer bridges XRP to Flare
- * through the FAssets system to mint FXRP, deposits the FXRP, and receives
- * stXRP, a liquid receipt token, while the staked FXRP underwrites DeFi
- * cover that protocols buy; no cover is sold to the farmer, and exits run
- * on 30-day coverage periods. Step 3 keeps one wallet per
+ * were counted as tokens. Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
  * protocol alone. Steps 2, 3, 5, 6 and 7 are shaped by the category: the
@@ -737,57 +751,118 @@ function exitFor(p: SnapshotProtocol): string {
  * lender, a pool and a vault, so no two categories farm the same way. Every
  * category on the board has its own shape for each of those steps.
  */
+
+/** One step of a corrected plan: the step's text, given the protocol, its capital and its network. */
+type CorrectionStep = (p: SnapshotProtocol, capital: number, chain: string) => string;
+
+/**
+ * Snapshot corrections: the farm plans the snapshot's own record cannot
+ * shape, in one table keyed by slug, so they read as one disclosed list
+ * rather than one-off special cases scattered through the code. Each entry
+ * states why the record is wrong, against the protocol's own documentation,
+ * and gives only the steps the record gets wrong: the action, the weekly
+ * action, the number worth logging, the claim page, the exit, the hold, the
+ * capital or the network, whichever the record misstates. Every step an
+ * entry does not give still comes from the category shape, and the scoring
+ * never names a protocol: these are plan corrections of the snapshot's own
+ * record, stated here, in the README and on the dashboard's model panel.
+ */
+interface PlanCorrection {
+  /** Why the snapshot's record cannot shape this plan, and the source that settles it. */
+  why: string;
+  action?: CorrectionStep;
+  weekly?: CorrectionStep;
+  track?: CorrectionStep;
+  claim?: CorrectionStep;
+  exit?: CorrectionStep;
+  /** What step 2 costs and how long it takes, when the generic capital does not apply. */
+  actionCost?: string;
+  actionTime?: string;
+  /** How the capital is named in the cost lines, when it is not a dollar amount. */
+  capitalLabel?: string;
+  /** Days the position must be held, when the protocol's own lock caps it below the generic hold. */
+  holdDays?: number;
+  /** The network the farm runs on, when the snapshot's first chain names somewhere else. */
+  chainLabel?: string;
+  /** The gas token on that network, when the snapshot's first chain would name another. */
+  gasToken?: string;
+}
+
+const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
+  // Hive Protocol is B² Hive, the network's own BTC staking pool, listed
+  // under category Chain, so the chain shape would tell its farmer to
+  // bridge USDC onto a network the protocol is not. Its plan stakes BTC
+  // for B2 rewards instead, as DefiLlama's own page for it says: "Stake
+  // BTC, safeguard B², and receive $B2 Tokens" (hive.bsquared.network).
+  'hive-protocol': {
+    why: 'DefiLlama lists B² Hive, the network\u2019s own BTC staking pool, under category Chain, so the chain shape would tell its farmer to bridge USDC onto a network the protocol is not.',
+    action: (p, capital, chain) => `Stake $${capital} of BTC in ${p.name} on ${chain} to safeguard the network and earn B2 rewards, and keep the staked position in your wallet.`,
+    weekly: (p) => `Check the B2 rewards ${p.name} shows each week and restake them, or add a small top-up to the stake.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the staked BTC balance and the B2 rewards earned that week.`,
+    claim: (p) => `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unstake the staked BTC from ${p.name}, close the log and retire the wallet.`,
+  },
+  // Firelight is the underwriting side of an insurance design, not a buyer
+  // of cover: a farmer bridges XRP to Flare through the FAssets system to
+  // mint FXRP, deposits the FXRP into Firelight's Launch Vault, and
+  // receives stXRP, a liquid receipt token, while the staked FXRP
+  // underwrites the DeFi cover protocols buy; the farmer earns Firelight
+  // Points, and since the cover phase went live on 6 October 2026 the
+  // staked FXRP can pay validated claims, and exits run on 30-day coverage
+  // periods, so the FXRP becomes withdrawable at the end of the following
+  // full period, up to 60 days. (flare.network; Chainwire, 6 Oct 2026.)
+  firelight: {
+    why: 'DefiLlama lists Firelight under category Insurance, so the insurance shape would tell its farmer to buy cover Firelight does not sell to users.',
+    action: (p, capital, chain) => `Bridge $${capital} of XRP to ${chain} through the FAssets system to mint FXRP, deposit the FXRP into ${p.name}'s Launch Vault, where the staked FXRP backs the cover Firelight sells and can pay validated claims, and keep the stXRP receipt token in your wallet.`,
+    weekly: (p) => `Check the Firelight Points and the stXRP balance ${p.name} shows each week, and add a small FXRP top-up to the vault when the balance is flat.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the stXRP balance and the Firelight Points it earned that week.`,
+    claim: (p) => `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the stXRP from ${p.name} for FXRP (exits run on 30-day coverage periods, so allow up to 60 days for the FXRP to become withdrawable), close the log and retire the wallet.`,
+  },
+  // Mezo Earn locks BTC, not USDC: locking BTC for 1–28 days gives a
+  // veBTC NFT that votes on the weekly gauges, locking MEZO gives veMEZO
+  // that boosts the vote up to 5x, and native BTC needs at least 0.01 BTC
+  // to bridge (wrapped BTC less), while BTC is the gas on Mezo. The
+  // governance shape would tell its farmer to lock USDC in a governance
+  // vault, an asset Mezo Earn never takes. (mezo.org: Getting Started
+  // with Mezo; Voting Overview.)
+  'mezo-earn': {
+    why: 'DefiLlama lists Mezo Earn under Governance Incentives, so the governance shape would tell its farmer to lock USDC in a governance vault — but Mezo Earn locks BTC, not USDC.',
+    action: (p, capital, chain) => `Lock 0.01 BTC of native BTC (or a smaller amount of wrapped tBTC) in ${p.name} on ${chain} for 1–28 days to receive a veBTC NFT and vote on the weekly gauges, and lock MEZO for veMEZO as well if you hold it, for up to 5x boosted voting weight.`,
+    actionCost: '0.01 BTC of capital, the native minimum, plus a small amount of BTC for gas',
+    actionTime: '3–4 hours for the BTC deposit to arrive, then 15 minutes to lock',
+    capitalLabel: '0.01 BTC',
+    holdDays: 28,
+    weekly: (p) => `Vote with the veBTC position on the new gauges each Thursday, when the weekly epoch starts, and extend the lock before it expires so the voting power does not decay to zero.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the veBTC NFT, the lock expiry and each gauge vote that week.`,
+    claim: (p) => `Before you withdraw, open ${p.name}'s own rewards page from its official site and claim the gauge fees and incentives only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then wait for the veBTC lock to expire at the next Thursday epoch boundary, withdraw the BTC from ${p.name}, close the log and retire the wallet.`,
+  },
+  // Abstract is its own Ethereum L2 network (ZK Stack), and its gas is ETH
+  // paid on Abstract, not on Ethereum mainnet — but the snapshot lists its
+  // chains as ["Ethereum"], because it settles on Ethereum, so the plan
+  // would fund a wallet for gas "on Ethereum" and run the farm there. The
+  // chain shape's bridge-onto-the-network action is right; only the network
+  // it names is wrong.
+  abstract: {
+    why: 'The snapshot lists Abstract\u2019s chains as ["Ethereum"] — it settles on Ethereum — but Abstract is its own Ethereum L2 network, and its gas is ETH paid on Abstract, not on Ethereum mainnet.',
+    chainLabel: 'Abstract',
+    gasToken: 'ETH',
+  },
+};
+
 export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
-  const chain = chainOf(p);
+  const correction = PLAN_CORRECTIONS[p.slug];
+  const chain = correction?.chainLabel ?? chainOf(p);
   const capital = capitalFor(p);
-  const hold = holdDaysFor(age);
-  // Hive Protocol is the one plan the category cannot shape: its record
-  // lists B² Hive, the network's own BTC staking pool, under category
-  // Chain, so the chain shape would tell its farmer to bridge USDC onto a
-  // network the protocol is not. Its steps stake BTC for B2 rewards
-  // instead, as DefiLlama's own page for it says: "Stake BTC, safeguard
-  // B², and receive $B2 Tokens". The scoring never names a protocol; this
-  // is a farm-plan correction of the snapshot's own record, stated here
-  // and in the README.
-  const isHive = p.slug === 'hive-protocol';
-  // Firelight is the second plan the category cannot shape: its record
-  // lists it under category Insurance, so the insurance shape would tell
-  // its farmer to buy cover Firelight does not sell to users. Firelight is
-  // the underwriting side: a farmer bridges XRP to Flare through the
-  // FAssets system to mint FXRP, deposits the FXRP into Firelight's Launch
-  // Vault, and receives stXRP, a liquid receipt token, while the staked
-  // FXRP underwrites the DeFi cover protocols buy; the farmer earns
-  // Firelight Points, and exits run on 30-day coverage periods. Its steps
-  // stake FXRP for stXRP instead. The scoring never names a protocol; this
-  // is a farm-plan correction of the snapshot's own record, stated here
-  // and in the README, the same disclosed pattern as Hive Protocol.
-  const isFirelight = p.slug === 'firelight';
-  const action = isHive
-    ? `Stake $${capital} of BTC in ${p.name} on ${chain} to safeguard the network and earn B2 rewards, and keep the staked position in your wallet.`
-    : isFirelight
-      ? `Bridge $${capital} of XRP to ${chain} through the FAssets system to mint FXRP, deposit the FXRP into ${p.name}'s Launch Vault, and keep the stXRP receipt token in your wallet.`
-      : actionFor(p, capital, chain);
-  const weekly = isHive
-    ? `Check the B2 rewards ${p.name} shows each week and restake them, or add a small top-up to the stake.`
-    : isFirelight
-      ? `Check the Firelight Points and the stXRP balance ${p.name} shows each week, and add a small FXRP top-up to the vault when the balance is flat.`
-      : weeklyActionFor(p);
-  const track = isHive
-    ? `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the staked BTC balance and the B2 rewards earned that week.`
-    : isFirelight
-      ? `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the stXRP balance and the Firelight Points it earned that week.`
-      : trackFor(p);
-  const claim = isHive
-    ? `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`
-    : isFirelight
-      ? `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`
-      : claimFor(p);
-  const exit = isHive
-    ? `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unstake the staked BTC from ${p.name}, close the log and retire the wallet.`
-    : isFirelight
-      ? `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the stXRP from ${p.name} for FXRP (exits run on 30-day coverage periods, so allow time), close the log and retire the wallet.`
-      : exitFor(p);
-  const gas = gasTokenFor(chain);
+  const capitalLabel = correction?.capitalLabel ?? `$${capital}`;
+  const hold = correction?.holdDays ?? holdDaysFor(age);
+  const action = correction?.action ? correction.action(p, capital, chain) : actionFor(p, capital, chain);
+  const weekly = correction?.weekly ? correction.weekly(p, capital, chain) : weeklyActionFor(p);
+  const track = correction?.track ? correction.track(p, capital, chain) : trackFor(p);
+  const claim = correction?.claim ? correction.claim(p, capital, chain) : claimFor(p);
+  const exit = correction?.exit ? correction.exit(p, capital, chain) : exitFor(p);
+  const gas = correction?.gasToken ?? gasTokenFor(chain);
   const noGas = gas === null;
   const walletStep = noGas
     ? `Open a fresh wallet for ${p.name} on ${chain}, where transactions carry no gas fee, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`
@@ -801,8 +876,8 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
     },
     {
       text: action,
-      cost: noGas ? `$${capital} of capital, and no gas fee` : `$${capital} of capital and about $${capital >= 250 ? 8 : 4} of gas`,
-      time: '15 minutes to set up',
+      cost: correction?.actionCost ?? (noGas ? `${capitalLabel} of capital, and no gas fee` : `${capitalLabel} of capital and about $${capital >= 250 ? 8 : 4} of gas`),
+      time: correction?.actionTime ?? '15 minutes to set up',
     },
     {
       text: `Use this wallet for ${p.name} alone, and ${weekly.charAt(0).toLowerCase()}${weekly.slice(1)}`,
@@ -811,7 +886,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
     },
     {
       text: `Hold the ${p.name} position for at least ${hold} days so the activity is counted in more than one snapshot.${others}`,
-      cost: `the $${capital} stays in the position`,
+      cost: `the ${capitalLabel} stays in the position`,
       time: `${hold} days`,
     },
     {

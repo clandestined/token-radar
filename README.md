@@ -6,6 +6,49 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-17)
+
+Radar-17 keeps radar-16's formula and every implied value, and fixes the
+farm plans the category shape got wrong — the third miscategorization
+round, now across other categories, not just Chain and Insurance. First,
+Mezo Earn (rank 67), the open item from round 13, is SETTLED with a fix:
+the governance shape told its farmer to lock USDC in a governance vault,
+but Mezo Earn locks BTC — locking BTC for 1–28 days gives a veBTC NFT
+that votes on the weekly gauges, locking MEZO gives veMEZO that boosts the
+vote up to 5x, and native BTC needs at least 0.01 BTC to bridge (wrapped
+tBTC less), per mezo.org. Its plan now locks 0.01 BTC for veBTC, votes
+each Thursday epoch, and holds 28 days, the longest lock. Second, three
+category shapes named the wrong asset or the wrong action: staking pools
+told their farmer to deposit USDC — Reti pools ALGO, Adrastea stakes SOL,
+Qearn locks QUBIC — so the shape now stakes the chain's own asset;
+Symbiotic, the board's only Collateral Markets row, was told to supply
+USDC as collateral and borrow against it, but Symbiotic takes staked-asset
+collateral (wstETH) into vaults delegated to operators, so it has its own
+shape now; Boros, the only Interest Rate Derivatives row, was told to open
+a hedged perp trade, but Boros trades funding rates on margin, so its
+shape now opens a long or short funding-rate position. Third, two one-row
+shapes named no asset at all where the asset matters: a Lightning Network
+payment channel is funded in BTC, and b14g's restaking restakes BTC, so
+both shapes name BTC on Bitcoin. Fourth, Firelight's exit is corrected:
+exits run on 30-day coverage periods, but the FXRP only becomes
+withdrawable at the end of the following full period, so the plan now
+allows up to 60 days, and the action now says the staked FXRP backs the
+cover Firelight sells and can pay validated claims, since the cover phase
+went live on 6 October 2026. Fifth, Abstract: the snapshot lists its
+chains as ["Ethereum"], so the plan funded a wallet for gas "on Ethereum"
+— but Abstract is its own Ethereum L2 and its gas is ETH paid on
+Abstract, so the plan now runs on Abstract. The two scattered name-keyed
+overrides (Hive, Firelight) are now one table, PLAN_CORRECTIONS in
+lib/model.ts, with Mezo Earn and Abstract joining it, and the dashboard's
+model panel names all four, so they read as one disclosed list of
+corrections, not special-casing. Monolith Market (rank 166), the other
+round-13 open item, is SETTLED with no fix: its CDP category is right —
+Monolith is a permissionless factory for crypto-backed stablecoins
+(deposit ETH or wBTC collateral, borrow its Coin), per DefiLlama and the
+ChainSecurity audit — and the CDP shape fits it. The board is unchanged:
+same 195 rows, same ranks, same implied values; only farm plans move, on
+10 rows, and the screenshots are retaken for the radar-17 label.
+
 ## The model (radar-16)
 
 Radar-16 keeps radar-15's formula and every implied value, and settles the
@@ -267,13 +310,15 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). Two plans are shaped by the protocol
-itself, not its category, and are disclosed where they are written: Hive
+farm runs; B2 is gas only on the Hub). Four plans are corrected against the
+snapshot's own record, in one table (see Snapshot corrections below): Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
-plan stakes BTC for B2 rewards instead of bridging onto a network; and
-Firelight is the underwriting side of an insurance design, not a buyer of
-cover, so its plan stakes FXRP in its Launch Vault for stXRP and Firelight
-Points instead of buying, renewing and cancelling cover. The weekly action, the number worth
+plan stakes BTC for B2 rewards instead of bridging onto a network; Firelight
+is the underwriting side of an insurance design, not a buyer of cover, so its
+plan stakes FXRP in its Launch Vault for stXRP and Firelight Points instead
+of buying, renewing and cancelling cover; Mezo Earn locks BTC for a veBTC
+vote, not USDC in a governance vault; and Abstract is its own Ethereum L2,
+not Ethereum mainnet, so its plan runs on Abstract. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
@@ -288,6 +333,39 @@ seasoning, category and the quality of the evidence behind it. The Live token
 view answers the same search, category, chain and TVL filters as the board,
 and rows with unreported growth or age sort at the values the model scores
 them at (flat, and 365 days), never as the oldest or the fastest.
+
+## Snapshot corrections
+
+Four farm plans follow the protocol's own documentation instead of the
+snapshot's category, because the snapshot's record mislabels the protocol.
+They live in one table, PLAN_CORRECTIONS in lib/model.ts, keyed by slug,
+each entry stating why the record is wrong and giving only the steps the
+record gets wrong; every other step still comes from the category shape,
+and the scoring never names a protocol.
+
+- Hive Protocol (rank 13): DefiLlama lists B² Hive, the network's own BTC
+  staking pool, under category Chain. The plan stakes BTC in B² Hive to
+  safeguard the network and earn B2 rewards, as DefiLlama's own page for
+  it says ("Stake BTC, safeguard B², and receive $B2 Tokens").
+- Firelight (rank 68): DefiLlama lists it under category Insurance. The
+  plan stakes FXRP in its Launch Vault for stXRP and Firelight Points
+  instead of buying cover: Firelight is the underwriting side — a farmer
+  bridges XRP to Flare through the FAssets system to mint FXRP, deposits
+  it, and receives stXRP, while the staked FXRP underwrites the DeFi cover
+  protocols buy. Since the cover phase went live on 6 October 2026 the
+  staked FXRP can pay validated claims, and exits run on 30-day coverage
+  periods, so the FXRP becomes withdrawable at the end of the following
+  full period, up to 60 days (flare.network; Chainwire, 6 Oct 2026).
+- Mezo Earn (rank 67): DefiLlama lists it under Governance Incentives.
+  The plan locks 0.01 BTC of native BTC (or a smaller amount of wrapped
+  tBTC) for 1–28 days to receive a veBTC NFT and vote on the weekly
+  gauges, with MEZO locked for veMEZO as a boost of up to 5x; native BTC
+  needs at least 0.01 BTC to bridge, and BTC is the gas on Mezo (mezo.org:
+  Getting Started with Mezo; Voting Overview).
+- Abstract (rank 125): the snapshot lists its chains as ["Ethereum"],
+  because it settles on Ethereum — but Abstract is its own Ethereum L2
+  network (ZK Stack), and its gas is ETH paid on Abstract. The plan runs
+  on Abstract instead of Ethereum mainnet.
 
 ## Run it
 
