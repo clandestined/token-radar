@@ -1,4 +1,4 @@
-// Token Radar's model (radar-5): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-6): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -12,7 +12,7 @@
 // floor, not a rankability ceiling: a $2.8B protocol the list leaves out
 // (Sentora Curator) is no worse a subject than a $49M one it names. One
 // watchlist slug is ranked although the early radar would leave it out:
-// Saturn, a Stablecoin Wrapper at rank 31, because a watchlist slug is
+// Saturn, a Stablecoin Wrapper at rank 29, because a watchlist slug is
 // always ranked; the dashboard states that carve-out where it states the
 // rule. The 147 pre-token protocols the board does not rank are counted by
 // exclusion in the dashboard's data, so the reader can see what was set
@@ -28,7 +28,10 @@
 //                 A category with one live peer never sets its own price: a
 //                 single peer's ratio, however extreme, is pulled most of the
 //                 way to the market. Categories with no live peer use the
-//                 whole market's median outright.
+//                 whole market's median outright. Exchange tokens are left
+//                 out of the comparable population: an exchange token's
+//                 market cap prices the exchange's business, not the TVL
+//                 the snapshot records for it.
 //   base        = tvl_usd x comparable
 //   growthMult  = 1 + clamp(change_7d, -40, 80) / 100 x 0.6
 //                 (change_7d unreported: treated as flat, see quality below)
@@ -111,7 +114,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-5';
+export const MODEL_VERSION = 'radar-6';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -258,14 +261,20 @@ export function isPreToken(p: SnapshotProtocol): boolean {
  * peers. A category with one live peer (Risk Curators: Api3 alone, at 2.98x)
  * never sets its own price: its shrunk multiple sits most of the way to the
  * market instead of at the 0.80 cap. Categories with no live peer use the
- * whole market's median outright. The map is computed from this snapshot
- * alone, at run time, never hard-coded.
+ * whole market's median outright. Exchange tokens are left out of the
+ * population entirely: an exchange token's market cap prices the exchange's
+ * business, not the TVL the snapshot records for it (Nexo's ratio is 69x on
+ * $10M of TVL, OKX's is 0.07x on $26B), so the comparables are the
+ * live-token DeFi protocols with a market cap above zero, the same
+ * population the dashboard names when it says how many protocols price the
+ * comparables. The map is computed from this snapshot alone, at run time,
+ * never hard-coded.
  */
 export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { byCategory: Map<string, { multiple: number; raw: number; peers: number }>; market: number } {
   const byCategory = new Map<string, number[]>();
   const all: number[] = [];
   for (const p of snapshot.protocols) {
-    if (isPreToken(p) || p.mcap_usd === null || p.tvl_usd <= 0) continue;
+    if (isPreToken(p) || p.category === 'CEX' || p.mcap_usd === null || p.tvl_usd <= 0) continue;
     const ratio = p.mcap_usd / p.tvl_usd;
     if (!Number.isFinite(ratio) || ratio <= 0) continue;
     all.push(ratio);
@@ -347,7 +356,7 @@ export function isRankable(p: SnapshotProtocol): boolean {
  * watchlist rule itself puts them (an exchange first, then a bridge, then a
  * staking wrapper, then a versioned pool, then a wrapped or staked name).
  * The watchlist is the floor, so this never describes a watchlist protocol:
- * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 31 even
+ * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 29 even
  * though the wrapper rule would leave it out, because a watchlist slug is
  * always ranked. The dashboard states that carve-out where it states the
  * rule, so the board and the rule it claims can never be caught disagreeing.
@@ -467,7 +476,19 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   if (c.includes('rwa')) return `Mint $${capital} of ${name}'s yield-bearing asset on ${chain} and hold it for the full period.`;
   if (c.includes('insurance')) return `Buy $${capital} of cover from ${name} on ${chain} and keep the policy active.`;
   if (c.includes('basis') || c.includes('options')) return `Deposit $${capital} of USDC into ${name}'s strategy on ${chain} and keep the position open.`;
+  if (c.includes('liquidity manager')) return `Deposit $${capital} of USDC into a ${name} managed pool on ${chain} and keep the managed position open.`;
   if (c.includes('liquid')) return `Deposit $${capital} into ${name} on ${chain} and keep the receipt token in your wallet.`;
+  if (c === 'chain') return `Move $${capital} of USDC onto ${name} through its official bridge and hold the balance in your wallet on the network.`;
+  if (c.includes('staking pool')) return `Deposit $${capital} of USDC into the ${name} staking pool on ${chain} and keep the staking receipt in your wallet.`;
+  if (c.includes('cedefi')) return `Deposit $${capital} of USDC into ${name}'s managed yield account on ${chain} and keep the account open.`;
+  if (c === 'farm') return `Deposit $${capital} of USDC into the ${name} farm on ${chain} and keep the farm position open.`;
+  if (c.includes('anchor btc') || c.includes('decentralized btc')) return `Deposit $${capital} of BTC-backed assets through ${name} on ${chain} and hold the receipt token in your wallet.`;
+  if (c.includes('payments')) return `Fund a ${name} payment channel with $${capital} on ${chain} and make one small payment through it.`;
+  if (c.includes('otc')) return `Place a $${capital} buy order for an OTC asset on ${name} on ${chain} and hold the asset in your wallet.`;
+  if (c === 'restaking') return `Restake $${capital} of USDC through ${name} on ${chain} and keep the restaking receipt in your wallet.`;
+  if (c.includes('governance')) return `Lock $${capital} of USDC in ${name}'s governance vault on ${chain} and vote once with the position.`;
+  if (c.includes('crypto card')) return `Load $${capital} of USDC onto the ${name} card on ${chain} and spend a small amount with it.`;
+  if (c.includes('index')) return `Buy $${capital} of the ${name} index token on ${chain} and hold it in your wallet.`;
   return `Deposit $${capital} of USDC into ${name} on ${chain} and use its main feature once.`;
 }
 
@@ -484,24 +505,51 @@ function weeklyActionFor(p: SnapshotProtocol): string {
   if (c.includes('rwa')) return `Check the yield ${name}'s asset accrued that week and top the position up by a small amount when it pays out.`;
   if (c.includes('insurance')) return `Check the cover from ${name} is still active each week and renew it before it lapses rather than after.`;
   if (c.includes('basis') || c.includes('options')) return `Rebalance the ${name} strategy position by a small amount each week instead of letting it drift untouched.`;
+  if (c.includes('liquidity manager')) return `Check the managed pool's rebalance on ${name} each week and add a small top-up when it rebalances.`;
   if (c.includes('liquid')) return `Check the receipt token balance for ${name} each week and add a small deposit when the balance is flat.`;
+  if (c === 'chain') return `Make one small transaction on ${name} each week, such as a transfer or a swap on its native venue, so the wallet stays active on the network.`;
+  if (c.includes('staking pool')) return `Check the staking rewards ${name} shows each week and restake them, or add a small top-up to the pool.`;
+  if (c.includes('cedefi')) return `Check the yield ${name}'s account paid that week and leave it compounding instead of withdrawing it.`;
+  if (c === 'farm') return `Harvest any farm rewards ${name} shows each week and restake them into the farm.`;
+  if (c.includes('anchor btc') || c.includes('decentralized btc')) return `Check the BTC yield ${name} paid that week and top the position up by a small amount when it pays out.`;
+  if (c.includes('payments')) return `Route one small payment through ${name} each week so the channel stays active.`;
+  if (c.includes('otc')) return `Check your open orders on ${name} each week and settle any filled order promptly.`;
+  if (c === 'restaking') return `Check the restaking rewards ${name} shows each week and restake them, or add a small top-up.`;
+  if (c.includes('governance')) return `Vote on one live proposal through ${name} each week and keep the locked position untouched.`;
+  if (c.includes('crypto card')) return `Spend a small amount with the ${name} card each week, never the whole balance at once.`;
+  if (c.includes('index')) return `Check the ${name} index token balance each week and add a small top-up when the balance is flat.`;
   return `Use ${name}'s main feature once each week, such as a deposit, a borrow, a swap or a vote, and never leave the wallet untouched for a whole month.`;
 }
 
 /** What to write in the farm log each week, by category: the number that proves the position is real. */
 function trackFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
-  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the borrow amount, the collateral ratio and the health factor.`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the pool share and the fees the position earned.`;
-  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the vault share balance and any points balance the protocol shows.`;
-  if (c.includes('perpetual') || c.includes('derivative')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the margin balance and the outcome of each trade.`;
-  if (c.includes('prediction')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note each settled position and its outcome.`;
-  if (c.includes('stable')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the stable balance and the peg or yield it shows.`;
-  if (c.includes('rwa')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the asset balance and the yield it accrued that week.`;
-  if (c.includes('insurance')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the cover amount and the date it lapses.`;
-  if (c.includes('basis') || c.includes('options')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the strategy balance and the funding or premium it earned.`;
-  if (c.includes('liquid')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the receipt token balance and the staking yield it shows.`;
-  return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the position size and any points balance the protocol shows.`;
+  const name = p.name;
+  let note: string;
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) note = `the borrow amount, the collateral ratio and the health factor.`;
+  else if (c.includes('dex') || c.includes('leveraged farm')) note = `the pool share and the fees the position earned.`;
+  else if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) note = `the vault share balance and any points balance the protocol shows.`;
+  else if (c.includes('perpetual') || c.includes('derivative')) note = `the margin balance and the outcome of each trade.`;
+  else if (c.includes('prediction')) note = `each settled position and its outcome.`;
+  else if (c.includes('stable')) note = `the stable balance and the peg or yield it shows.`;
+  else if (c.includes('rwa')) note = `the asset balance and the yield it accrued that week.`;
+  else if (c.includes('insurance')) note = `the cover amount and the date it lapses.`;
+  else if (c.includes('basis') || c.includes('options')) note = `the strategy balance and the funding or premium it earned.`;
+  else if (c.includes('liquidity manager')) note = `the managed pool share and the fees the position earned.`;
+  else if (c.includes('liquid')) note = `the receipt token balance and the staking yield it shows.`;
+  else if (c === 'chain') note = `the wallet balance on the network and the number of transactions that week.`;
+  else if (c.includes('staking pool')) note = `the staked balance and the staking rewards it earned.`;
+  else if (c.includes('cedefi')) note = `the account balance and the yield it paid that week.`;
+  else if (c === 'farm') note = `the farm balance and the rewards harvested that week.`;
+  else if (c.includes('anchor btc') || c.includes('decentralized btc')) note = `the BTC-backed balance and the yield it earned that week.`;
+  else if (c.includes('payments')) note = `the channel balance and each payment routed that week.`;
+  else if (c.includes('otc')) note = `each filled order and the asset balance.`;
+  else if (c === 'restaking') note = `the restaked balance and the rewards it earned that week.`;
+  else if (c.includes('governance')) note = `the locked balance and each vote cast that week.`;
+  else if (c.includes('crypto card')) note = `the card balance and each spend that week.`;
+  else if (c.includes('index')) note = `the index token balance and its net asset value.`;
+  else note = `the position size and any points balance the protocol shows.`;
+  return `Track the position weekly in a farm log for ${name} with the wallet address, the dates and every transaction hash, and note ${note}`;
 }
 
 /** The native gas token of a chain, where it is a household name; anything else is named by the chain, never guessed. */
@@ -511,31 +559,69 @@ function gasTokenFor(chain: string): string {
     Solana: 'SOL', Binance: 'BNB', Bitcoin: 'BTC', Avalanche: 'AVAX', Polygon: 'POL', Sui: 'SUI', Aptos: 'APT', Tron: 'TRX', 'Hyperliquid L1': 'HYPE',
     Stellar: 'XLM', Flare: 'FLR', Berachain: 'BERA', Mantle: 'MNT', Sonic: 'S', Sei: 'SEI', Celo: 'CELO', Ronin: 'RON', Bittensor: 'TAO', Algorand: 'ALGO', Ripple: 'XRP', Starknet: 'STRK', Monad: 'MON',
   };
-  return known[chain] ?? `that chain's native gas token`;
+  return known[chain] ?? `${chain}'s native gas token`;
 }
 
 /** Where to look for the claim, by category: the page that would actually carry it for this kind of protocol. */
 function claimFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
-  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Before you withdraw, open the ${name} vault's own points or rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `Before you withdraw, open ${name}'s own pool incentives or points page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
-  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Before you withdraw, open ${name}'s own lending rewards or points page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
-  if (c.includes('perpetual') || c.includes('derivative')) return `Before you withdraw, open ${name}'s own trading rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
-  if (c.includes('prediction')) return `Before you withdraw, open ${name}'s own market rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
-  return `Before you withdraw, open the protocol's own points or rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  let page: string;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) page = `the ${name} vault's own points or rewards page`;
+  else if (c.includes('dex') || c.includes('leveraged farm')) page = `${name}'s own pool incentives or points page`;
+  else if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) page = `${name}'s own lending rewards or points page`;
+  else if (c.includes('perpetual') || c.includes('derivative')) page = `${name}'s own trading rewards page`;
+  else if (c.includes('prediction')) page = `${name}'s own market rewards page`;
+  else if (c.includes('rwa')) page = `${name}'s own asset redemptions or rewards page`;
+  else if (c.includes('insurance')) page = `${name}'s own cover rewards page`;
+  else if (c.includes('stable')) page = `${name}'s own stability rewards page`;
+  else if (c.includes('basis') || c.includes('options')) page = `${name}'s own strategy rewards page`;
+  else if (c.includes('liquidity manager')) page = `${name}'s own liquidity incentives page`;
+  else if (c.includes('liquid')) page = `${name}'s own staking rewards page`;
+  else if (c === 'chain') page = `${name}'s own ecosystem rewards or airdrop page`;
+  else if (c.includes('staking pool')) page = `${name}'s own staking rewards page`;
+  else if (c.includes('cedefi')) page = `${name}'s own yield rewards page`;
+  else if (c === 'farm') page = `${name}'s own farm rewards page`;
+  else if (c.includes('anchor btc') || c.includes('decentralized btc')) page = `${name}'s own BTC rewards page`;
+  else if (c.includes('payments')) page = `${name}'s own routing rewards page`;
+  else if (c.includes('otc')) page = `${name}'s own trading rewards page`;
+  else if (c === 'restaking') page = `${name}'s own restaking rewards page`;
+  else if (c.includes('governance')) page = `${name}'s own governance rewards page`;
+  else if (c.includes('crypto card')) page = `${name}'s own card rewards page`;
+  else if (c.includes('index')) page = `${name}'s own index rewards page`;
+  else page = `the protocol's own points or rewards page`;
+  return `Before you withdraw, open ${page} from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
 }
 
 /** How to unwind the farm, by category: the position that actually has to come out. */
 function exitFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
-  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the vault shares, close the log and retire the wallet.`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then remove the liquidity, close the log and retire the wallet.`;
-  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then repay the borrow, withdraw the collateral, close the log and retire the wallet.`;
-  if (c.includes('perpetual') || c.includes('derivative')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then close any open trade, withdraw the margin, close the log and retire the wallet.`;
-  if (c.includes('prediction')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then close any open position, close the log and retire the wallet.`;
-  if (c.includes('stable')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the stable asset, close the log and retire the wallet.`;
-  return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unwind the farm position and close the log.`;
+  const name = p.name;
+  const head = `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then `;
+  const tail = `, close the log and retire the wallet.`;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `${head}withdraw the vault shares from ${name}${tail}`;
+  if (c.includes('dex') || c.includes('leveraged farm')) return `${head}remove the liquidity from ${name}${tail}`;
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `${head}repay the borrow, withdraw the collateral from ${name}${tail}`;
+  if (c.includes('perpetual') || c.includes('derivative')) return `${head}close any open trade, withdraw the margin from ${name}${tail}`;
+  if (c.includes('prediction')) return `${head}close any open position on ${name}${tail}`;
+  if (c.includes('stable')) return `${head}redeem the stable asset from ${name}${tail}`;
+  if (c.includes('rwa')) return `${head}redeem the yield-bearing asset from ${name}${tail}`;
+  if (c.includes('insurance')) return `${head}cancel the cover from ${name}${tail}`;
+  if (c.includes('basis') || c.includes('options')) return `${head}close the strategy position on ${name}${tail}`;
+  if (c.includes('liquidity manager')) return `${head}remove the managed liquidity from ${name}${tail}`;
+  if (c.includes('liquid')) return `${head}unstake the position from ${name} and withdraw the receipt token${tail}`;
+  if (c === 'chain') return `${head}bridge the balance back off ${name}${tail}`;
+  if (c.includes('staking pool')) return `${head}unstake the deposit from ${name}${tail}`;
+  if (c.includes('cedefi')) return `${head}withdraw the deposit from ${name}${tail}`;
+  if (c === 'farm') return `${head}withdraw the farm position from ${name}${tail}`;
+  if (c.includes('anchor btc') || c.includes('decentralized btc')) return `${head}redeem the BTC-backed position from ${name}${tail}`;
+  if (c.includes('payments')) return `${head}close the payment channel on ${name} and withdraw the balance${tail}`;
+  if (c.includes('otc')) return `${head}close any open order on ${name} and withdraw the balance${tail}`;
+  if (c === 'restaking') return `${head}unstake the restaked position from ${name}${tail}`;
+  if (c.includes('governance')) return `${head}unlock the governance position from ${name}${tail}`;
+  if (c.includes('crypto card')) return `${head}withdraw the remaining card balance from ${name}${tail}`;
+  if (c.includes('index')) return `${head}sell the index tokens on ${name}${tail}`;
+  return `${head}unwind the farm position on ${name} and close the log.`;
 }
 
 /**
@@ -545,10 +631,11 @@ function exitFor(p: SnapshotProtocol): string {
  * token of the protocol's own first chain. Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
- * protocol alone. Steps 3, 5, 6 and 7 are shaped by the category: the
- * weekly action, the number worth logging, the page that would carry a
- * claim and the way the position unwinds all differ between a lender, a
- * pool and a vault, so no two categories farm the same way.
+ * protocol alone. Steps 2, 3, 5, 6 and 7 are shaped by the category: the
+ * action itself, the weekly action, the number worth logging, the page that
+ * would carry a claim and the way the position unwinds all differ between a
+ * lender, a pool and a vault, so no two categories farm the same way. Every
+ * category on the board has its own shape for each of those steps.
  */
 export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const chain = chainOf(p);
@@ -629,9 +716,10 @@ export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
   const byCategory = new Map<string, LiveRow[]>();
   const rows = snapshot.protocols
     // The same population the comparables are priced from: a live token with
-    // a market cap the snapshot records. A protocol that records a token but
-    // no market cap has no ratio to show, so it never appears as a peer.
-    .filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.tvl_usd > 0)
+    // a market cap above zero that the snapshot records, and not an exchange
+    // token. A protocol that records a token but no market cap has no ratio
+    // to show, so it never appears as a peer; a $0 market cap is the same.
+    .filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0)
     .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
     .map(toLiveRow);
   for (const r of rows) {
@@ -716,7 +804,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     peer_samples: liveSamples(snapshot),
     excluded: excludedBreakdown(snapshot, board),
     live_total: snapshot.protocols.filter((p) => !isPreToken(p)).length,
-    live_priced: snapshot.protocols.filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.tvl_usd > 0).length,
+    live_priced: snapshot.protocols.filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0).length,
   };
   return { board, radar };
 }
