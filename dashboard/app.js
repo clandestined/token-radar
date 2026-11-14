@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-9). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-10). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -403,7 +403,7 @@
     var saturnText = saturn ? ' One watchlist protocol is ranked although the wrapper rule would leave it out: Saturn, a Stablecoin Wrapper, sits at rank ' + saturn.rank + ' because the watchlist is the floor and a watchlist slug is always ranked.' : '';
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the whole market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
+      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
       el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories priced here have fewer than three live peers, so most multiples would rest on one or two protocols without it. Shrinking in log space matters because the old arithmetic shrink clamped the raw median first: seven single-peer categories, from Options at 1.51x to Prediction Market at 400.20x, all priced at one identical multiple, and a category whose peers trade at 0.002x was lifted to the market by the floor. Now each prices from its own peer, still pulled most of the way to the market, and still capped. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(4) + 'x') + '.' }),
       el('div', { class: 'formula' },
         'multiple = exp((peers x ln(categoryMedian) + ' + m.shrink_peers + ' x ln(marketMedian)) / (peers + ' + m.shrink_peers + ')), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
@@ -411,7 +411,7 @@
       el('div', { class: 'formula' },
         'implied = round( tvl_usd x multiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'
       ),
-      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the early radar: they are a token that already trades, in another wrapper. ' + DATA.excluded.total + ' pre-token protocols are set aside that way (' + excludedText + ').' + saturnText + ' "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
+      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the early radar: they are a token that already trades, in another wrapper. Their tokens are left out of the comparables too: a bridge token market cap prices the bridge business, not the value locked in it, so the market median is the median of the live-token protocols in the categories the board ranks. ' + DATA.excluded.total + ' pre-token protocols are set aside that way (' + excludedText + ').' + saturnText + ' "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
     );
   }
 
@@ -440,7 +440,7 @@
     });
     return el('section', { class: 'panel peers' },
       el('h2', { text: 'Category comparables' }),
-      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by category. The whole market median is ' + DATA.market_multiple.toFixed(4) + 'x; a category with fewer than three live peers is shrunk toward it, so one peer never sets a price on its own.' }),
+      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by category. The market median is ' + DATA.market_multiple.toFixed(4) + 'x; a category with fewer than three live peers is shrunk toward it, so one peer never sets a price on its own.' }),
       el('div', { class: 'table-wrap' },
         el('table', null,
           el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Multiple used' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Raw median' }), el('th', { scope: 'col', text: 'How it is read' }))),

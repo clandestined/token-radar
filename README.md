@@ -6,7 +6,30 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-9)
+## The model (radar-10)
+
+Radar-10 keeps radar-9's formula and changes one thing about what prices it:
+the market median no longer counts the 29 bridge, liquid-staking, liquid-restaking
+and wrapper protocols whose tokens the board itself refuses to rank. The board
+excludes them because they are a token that already trades in another wrapper, and
+the comparables already excluded exchange tokens on the same ground, that their
+market cap prices the exchange's business rather than the TVL the snapshot records.
+A bridge token's market cap prices the bridge's business, not the value locked in
+it, and a liquid-staking governance token prices governance over the staked asset,
+not the asset itself, so their ratios measure a different object than a lender's or
+a DEX's. On this snapshot the 29 sit at a median ratio of 0.3167x against the
+market's 0.2460x, nine of them below 0.05x and nine above 1x, so counting them lifted
+the market median by about 5%. The comparable population is now the 90 live-token
+protocols with a market cap above zero in the categories the board ranks, and the
+market median is 0.2343x instead of 0.2460x. The board's total implied value falls
+from $5,966,387,481 to $5,786,663,094 (-3.0%); 190 of the 195 rows change value,
+101 change rank by at most 4 places, and the top three are unchanged
+(Steakhouse Financial $1,101,885,749, Sentora Curator $1,064,066,994, Gauntlet
+$661,326,006), so the change is made for consistency, not for a different answer:
+the median-population choice moves no rank more than four places. Saturn moves
+one place with the rest, from rank 27 to rank 28, and the number is corrected in
+the README and the model's comments; the dashboard already names the rank from
+the board, never from a written number.
 
 Radar-9 keeps radar-8's formula and every implied value, and fixes two
 things a reader could catch it on. First, Saturn's rank: the README and the
@@ -33,7 +56,7 @@ multiple line and in the why-sentence: Prediction Market's raw 400.20x
 peer prices at the 0.80 cap, and Staking Pool's raw 0.002x peer prices at
 the 0.05 floor, and neither is left for the reader to infer from the two
 numbers side by side. The cap stays the guard for the Prediction Market
-case: a $25M peer-TVL floor would throw out 58 of the 119 priced peers
+case: a $25M peer-TVL floor would throw out 43 of the 90 priced peers
 (including the only peer of Risk Curators, Chain, Options and NFT
 Marketplace), and winsorizing the raw median would collapse the rich
 single-peer categories back to one number, the flaw radar-7 fixed; the
@@ -45,7 +68,7 @@ One function scores every row, from the snapshot's own figures only:
 multiple = exp((peers x ln(categoryMedian) + 3 x ln(marketMedian)) / (peers + 3)),
   clamped to [0.05, 0.80]; categoryMedian is the median market-cap-to-TVL
   ratio of the live-token protocols in the same category, marketMedian the
-  whole market's median
+  median over the live-token protocols in the categories the board ranks
 implied = round( tvl_usd x multiple
   x (1 + clamp(change_7d, -40, 80) / 100 x 0.6)
   x (0.70 + min(age_days, 1095) / 1095 x 0.30)
@@ -61,18 +84,18 @@ between rich single-peer categories: Chain (3.03x), Collateral Management
 (12.16x), Decentralized AI (2.06x), NFT Marketplace (2.00x), Options
 (1.51x), Prediction Market (400.20x) and Risk Curators (2.97x) all priced at
 one identical 0.3845x, 40 board rows on a single number. In log space they
-price at 0.4607x, 0.6523x, 0.4185x, 0.4155x, 0.3875x, the 0.80 cap and
-0.4587x: each from its own peer, still pulled most of the way to the market
+price at 0.4442x, 0.6289x, 0.4035x, 0.4006x, 0.3736x, the 0.80 cap and
+0.4423x: each from its own peer, still pulled most of the way to the market
 by the 3-peer weight, and still capped. The same clamp erased the cheap end
 too: a category whose peers trade at 0.002x was lifted to 0.1676x by the
 floor before shrinking, so Staking Pool (SSV at 0.00x on $10.2B of TVL)
 priced as if it were a mid-market category; in log space it prices at the
 0.05 floor. A single peer still never sets its own price: Risk Curators'
-2.97x peer pulls the multiple to 0.4587x, not to 2.97x, and an extreme peer
+2.97x peer pulls the multiple to 0.4423x, not to 2.97x, and an extreme peer
 still lands at the cap, which is the model's bound. On this snapshot the
 Risk Curators median comes from a single live peer (Api3, at 2.98x mcap/TVL),
 so without shrinkage all 34 Risk Curator rows would price at the 0.80 cap;
-shrunk in log space, they price at 0.4587x. The multiple is rounded to four decimals before
+shrunk in log space, they price at 0.4423x. The multiple is rounded to four decimals before
 it is used, so the dashboard's recompute of a row matches board.json exactly.
 Age is days since first listing, the record of how long a protocol has run
 with no token. `quality` is 0.97 when seven-day growth is unreported and 1.00
@@ -91,12 +114,12 @@ not rank are counted by exclusion on the dashboard (52 exchanges, 39 bridges,
 38 liquid staking / restaking products, 11 versioned pools, 6 wrapped / staked
 names, 1 stablecoin wrapper), so the reader can see what was set aside and
 why. One watchlist protocol is ranked although the early-radar wrapper rule
-would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 27, because a
+would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 28, because a
 watchlist slug is always ranked. The Live token view shows the 24 biggest
 live-token protocols by market cap, of 416 that record a token; the
-comparables are priced from the 119 of those with a market cap above zero,
-exchange tokens left out. The
-shrinkage is evidence-driven, not a guessed weight: 33 of the 46 categories
+comparables are priced from the 90 of those with a market cap above zero,
+exchange, bridge, liquid-staking, liquid-restaking and wrapper tokens left out. The
+shrinkage is evidence-driven, not a guessed weight: 32 of the 41 categories
 priced have fewer than three live peers, so most multiples would rest on
 one or two protocols without it. Live-token protocols are set aside and
 shown with their market caps. Farm plans are seven steps each, derived from
@@ -111,7 +134,7 @@ seven steps are distinct on all 195 rows: no step falls back to a generic
 line. Exchange tokens are left out of the comparables and out of the detail
 views' peer samples, and a protocol with a $0 market cap never appears as a
 peer: the comparables are priced from live-token DeFi protocols with a
-market cap above zero, the same 119 the dashboard counts. Every detail view also
+market cap above zero, the same 90 the dashboard counts. Every detail view also
 says, in one sentence, why that row sits where it does: size, momentum,
 seasoning, category and the quality of the evidence behind it. The Live token
 view answers the same search, category, chain and TVL filters as the board,

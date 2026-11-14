@@ -1,4 +1,4 @@
-// Token Radar's model (radar-9): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-10): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -12,7 +12,7 @@
 // floor, not a rankability ceiling: a $2.8B protocol the list leaves out
 // (Sentora Curator) is no worse a subject than a $49M one it names. One
 // watchlist slug is ranked although the early radar would leave it out:
-// Saturn, a Stablecoin Wrapper at rank 27, because a watchlist slug is
+// Saturn, a Stablecoin Wrapper at rank 28, because a watchlist slug is
 // always ranked; the dashboard states that carve-out where it states the
 // rule. The 147 pre-token protocols the board does not rank are counted by
 // exclusion in the dashboard's data, so the reader can see what was set
@@ -22,8 +22,8 @@
 // function applied to every row. No protocol name is ever special-cased.
 //
 //   comparable  = median(mcap_usd / tvl_usd) over the live-token protocols
-//                 in the same category, shrunk toward the whole market's
-//                 median in log space with a weight of 3 peers, then clamped
+//                 in the same category, shrunk toward the market median
+//                 in log space with a weight of 3 peers, then clamped
 //                 to [0.05, 0.80]:
 //                 exp((peers x ln(categoryMedian) + 3 x ln(marketMedian))
 //                     / (peers + 3)).
@@ -34,10 +34,12 @@
 //                 A category with one live peer still never prices at its
 //                 peer's ratio: the market weight pulls it most of the way
 //                 back, and the cap bounds the rest. Categories with no live
-//                 peer use the whole market's median outright. Exchange tokens are left
-//                 out of the comparable population: an exchange token's
-//                 market cap prices the exchange's business, not the TVL
-//                 the snapshot records for it.
+//                 peer use the market median outright. The market median is
+//                 the median over the live-token protocols in the categories
+//                 the board ranks: exchange, bridge, liquid staking,
+//                 liquid restaking and wrapper tokens are left out of the
+//                 comparable population, because their market caps price a
+//                 business other than the TVL the snapshot records for them.
 //   base        = tvl_usd x comparable
 //   growthMult  = 1 + clamp(change_7d, -40, 80) / 100 x 0.6
 //                 (change_7d unreported: treated as flat, see quality below)
@@ -120,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-9';
+export const MODEL_VERSION = 'radar-10';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -260,9 +262,22 @@ export function isPreToken(p: SnapshotProtocol): boolean {
   return p.mcap_usd === null && p.gecko_id === null && p.symbol === null;
 }
 
+/** Categories that are a bridge, a staking wrapper or an exchange, never a launch of their own. */
+const EXCLUDED_CATEGORIES = new Set(['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaked BTC', 'CEX']);
+
+/** Category words that mark a bridge or a wrapper whatever the exact label: a "Cross Chain Bridge" is a bridge and a "Stablecoin Wrapper" is a wrapper. */
+const EXCLUDED_CATEGORY_WORDS = ['bridge', 'wrapper'];
+
+/** Whether a live-token protocol's category is one the board never ranks: its token prices a wrapper or an exchange, not a launch. */
+function isExcludedCategory(p: SnapshotProtocol): boolean {
+  if (p.category === null) return false;
+  if (EXCLUDED_CATEGORIES.has(p.category)) return true;
+  return EXCLUDED_CATEGORY_WORDS.some((w) => p.category!.toLowerCase().includes(w));
+}
+
 /**
  * The category comparables: for each category, the median market-cap-to-TVL
- * ratio of the live-token protocols in it, shrunk toward the whole market's
+ * ratio of the live-token protocols in it, shrunk toward the market
  * median in log space with a weight of `shrink_peers` peers, then clamped to
  * the model's band. Ratios multiply, so the shrinkage averages logarithms:
  * exp((peers x ln(categoryMedian) + 3 x ln(marketMedian)) / (peers + 3)).
@@ -272,29 +287,39 @@ export function isPreToken(p: SnapshotProtocol): boolean {
  * (12.16x), Decentralized AI (2.06x), NFT Marketplace (2.00x), Options
  * (1.51x), Prediction Market (400.20x) and Risk Curators (2.97x) all priced
  * at one identical 0.3845x, 40 board rows on a single number. In log space
- * they price at 0.4607x, 0.6523x, 0.4185x, 0.4155x, 0.3875x, the 0.80 cap
- * and 0.4587x: each from its own peer, still pulled most of the way to the
+ * they price at 0.4442x, 0.6289x, 0.4035x, 0.4006x, 0.3736x, the 0.80 cap
+ * and 0.4423x: each from its own peer, still pulled most of the way to the
  * market by the 3-peer weight. The same clamp erased the cheap end too: a
  * category whose peers trade at 0.002x was lifted to 0.1676x by the floor
  * before shrinking, so Staking Pool (SSV at 0.00x on $10.2B of TVL) priced
  * as if it were a mid-market category; in log space it prices at the 0.05
  * floor. A single peer still never sets its own price: Risk Curators'
- * 2.97x peer pulls the multiple to 0.4587x, not to 2.97x, and an extreme
+ * 2.97x peer pulls the multiple to 0.4423x, not to 2.97x, and an extreme
  * peer still lands at the cap, which is the model's bound. Categories with
- * no live peer use the whole market's median outright. Exchange tokens are
- * left out of the population entirely: an exchange token's market cap prices
+ * no live peer use the market median outright. Exchange tokens are left
+ * out of the population entirely: an exchange token's market cap prices
  * the exchange's business, not the TVL the snapshot records for it (Nexo's
- * ratio is 69x on $10M of TVL, OKX's is 0.07x on $26B), so the comparables
- * are the live-token DeFi protocols with a market cap above zero, the same
- * population the dashboard names when it says how many protocols price the
- * comparables. The map is computed from this snapshot alone, at run time,
- * never hard-coded.
+ * ratio is 69x on $10M of TVL, OKX's is 0.07x on $26B). Bridge, liquid
+ * staking, liquid restaking and wrapper tokens are left out for the same
+ * reason, and it is the same rule the board applies to the ranking itself:
+ * a bridge token's market cap prices the bridge's business, not the value
+ * locked in it, and a liquid-staking governance token prices governance
+ * over the staked asset, not the asset itself, so their ratios measure a
+ * different object than a lender's or a DEX's. On this snapshot the 29
+ * such protocols sit at a median ratio of 0.3167x against the market's
+ * 0.2460x, nine of them below 0.05x and nine above 1x, so leaving them in
+ * lifts the market median by about 5% on a population the board itself
+ * refuses to rank. The comparables are therefore the live-token DeFi
+ * protocols with a market cap above zero in the categories the board
+ * ranks, the same population the dashboard names when it says how many
+ * protocols price the comparables. The map is computed from this snapshot
+ * alone, at run time, never hard-coded.
  */
 export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { byCategory: Map<string, { multiple: number; raw: number; peers: number }>; market: number } {
   const byCategory = new Map<string, number[]>();
   const all: number[] = [];
   for (const p of snapshot.protocols) {
-    if (isPreToken(p) || p.category === 'CEX' || p.mcap_usd === null || p.tvl_usd <= 0) continue;
+    if (isPreToken(p) || isExcludedCategory(p) || p.mcap_usd === null || p.tvl_usd <= 0) continue;
     const ratio = p.mcap_usd / p.tvl_usd;
     if (!Number.isFinite(ratio) || ratio <= 0) continue;
     all.push(ratio);
@@ -357,17 +382,10 @@ const WRAPPED_WORD = /\b(wrapped|staked|staking|restaked|restaking)\b/i;
 /** Exchange names whose products are the exchange's own, not a pre-token protocol. */
 const EXCHANGE_PREFIX = /^(binance|coinbase|bybit|kraken|bitget|okx|bitfinex|gemini)\b/i;
 
-/** Categories that are a bridge, a staking wrapper or an exchange, never a launch of their own. */
-const EXCLUDED_CATEGORIES = new Set(['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaked BTC', 'CEX']);
-
-/** Category words that mark a bridge or a wrapper whatever the exact label: a "Cross Chain Bridge" is a bridge and a "Stablecoin Wrapper" is a wrapper. */
-const EXCLUDED_CATEGORY_WORDS = ['bridge', 'wrapper'];
-
 /** Whether a protocol is one the board may rank: pre-token, and not a wrapped, staked, restaked, bridged, versioned or exchange product. */
 export function isRankable(p: SnapshotProtocol): boolean {
   if (!isPreToken(p)) return false;
-  if (p.category !== null && EXCLUDED_CATEGORIES.has(p.category)) return false;
-  if (p.category !== null && EXCLUDED_CATEGORY_WORDS.some((w) => p.category!.toLowerCase().includes(w))) return false;
+  if (isExcludedCategory(p)) return false;
   if (VERSIONED.test(p.name)) return false;
   if (WRAPPED_WORD.test(p.name)) return false;
   if (EXCHANGE_PREFIX.test(p.name)) return false;
@@ -380,7 +398,7 @@ export function isRankable(p: SnapshotProtocol): boolean {
  * watchlist rule itself puts them (an exchange first, then a bridge, then a
  * staking wrapper, then a versioned pool, then a wrapped or staked name).
  * The watchlist is the floor, so this never describes a watchlist protocol:
- * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 27 even
+ * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 28 even
  * though the wrapper rule would leave it out, because a watchlist slug is
  * always ranked. The dashboard states that carve-out where it states the
  * rule, so the board and the rule it claims can never be caught disagreeing.
@@ -832,7 +850,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     peer_samples: liveSamples(snapshot),
     excluded: excludedBreakdown(snapshot, board),
     live_total: snapshot.protocols.filter((p) => !isPreToken(p)).length,
-    live_priced: snapshot.protocols.filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0).length,
+    live_priced: snapshot.protocols.filter((p) => !isPreToken(p) && !isExcludedCategory(p) && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0).length,
   };
   return { board, radar };
 }
