@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-24). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-25). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -15,8 +15,12 @@
   var usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   function fmtUsd(n) {
     if (n === null || n === undefined || !isFinite(n)) return 'n/a';
-    if (Math.abs(n) >= 1e9) return '$' + (n / 1e9).toFixed(2) + 'B';
-    if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+    // The thresholds sit just below the next unit, not on it: $999,999
+    // rounds to $1.0M at one decimal, not to "$1000K", and $999,999,999
+    // rounds to $1.00B at two decimals, not to "$1000.0M". No value on
+    // this snapshot sits in either range, so no visible number moves.
+    if (Math.abs(n) >= 999500000) return '$' + (n / 1e9).toFixed(2) + 'B';
+    if (Math.abs(n) >= 999500) return '$' + (n / 1e6).toFixed(1) + 'M';
     if (Math.abs(n) >= 1e3) return '$' + Math.round(n / 1e3) + 'K';
     return usd.format(n);
   }
@@ -48,11 +52,13 @@
   // same drivers the model scored: size, momentum, seasoning, category and
   // the quality of the evidence. It is a reading of the numbers, not a claim.
   // The bands read the numbers they describe: a 5-10% weekly move is not
-  // flat (42 rows read that way), 300-364 days is not half a year (9 rows),
+  // flat (43 rows read that way), 300-364 days is not half a year (9 rows),
   // and a multiple below the market median is not mid-range (18 rows at
   // 0.2013-0.217x against a 0.2343x market). The boundaries are strict
   // where the words are: exactly 730 days is two years, not two-plus, and
-  // exactly 365 days is a year, not over one.
+  // exactly 365 days is a year, not over one — radar-24 changed the
+  // comparisons to strict but never wrote those two labels, so Goose read
+  // "over a year" and Yuzu Money "nearly a year" until this round.
   function whyHere(row) {
     var parts = [];
     if (row.tvl_usd >= 1e9) parts.push('a very large TVL');
@@ -66,7 +72,9 @@
     else if (row.change_7d === null || row.change_7d === undefined) parts.push('seven-day growth unreported, so it is valued as flat with a small discount');
     else parts.push('flat seven-day growth');
     if (row.age_days !== null && row.age_days !== undefined && row.age_days > 730) parts.push('two-plus years running with no token');
+    else if (row.age_days !== null && row.age_days !== undefined && row.age_days === 730) parts.push('two years running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days > 365) parts.push('over a year running with no token');
+    else if (row.age_days !== null && row.age_days !== undefined && row.age_days === 365) parts.push('a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 300) parts.push('nearly a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 180) parts.push('half a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days < 180) parts.push('a young protocol, seasoned only briefly');

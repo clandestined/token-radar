@@ -6,6 +6,31 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-25)
+
+Radar-25 keeps radar-24's formula and every implied value, and finishes
+the job radar-24 started on the why-sentences, plus one display bug the
+audit found beside it. First, radar-24's exact-boundary fix never reached
+the words: it changed the age comparisons from `>=` to `>` but the code
+never had a "two years" or a "a year" label to land on, so Goose, exactly
+730 days old, read "over a year running with no token" — true, but a year
+short of its age, next to 400-day rows that read the same — and Yuzu
+Money, exactly 365 days old, read "nearly a year", which is false: it is
+a year old. The why-sentence now has the two exact-boundary branches, so
+Goose reads "two years running with no token" and Yuzu Money reads "a
+year running with no token", and the "nearly a year" band now holds
+exactly the nine rows aged 300–364 days it was written for. Second, a
+recount: the modest 5–10% weekly move is 43 rows, not 42 (9 growing,
+34 declining), so the count is corrected here, in radar-24's paragraph
+below and in the code's own comment. Third, the dollar formatter rounded
+across its unit boundaries: $999,999 would have shown as "$1000K" and
+$999,999,999 as "$1000.0M", so its thresholds now sit just below the
+next unit ($999,999 shows as $1.0M, $999,999,999 as $1.00B). No value on
+this snapshot sits in either range, so no visible number moves. The board
+is unchanged: same 195 rows, same ranks, same implied values, board.json
+byte identical; only the why-sentences and the formatter move, and the
+screenshots are retaken for the radar-25 label.
+
 ## The model (radar-24)
 
 Radar-24 keeps radar-23's formula and every implied value, and fixes the
@@ -27,7 +52,7 @@ because the page recomputes each row from the multiple board.json
 carries; a live multiple is only ever displayed and sorted, never
 recomputed from. The README's own "2.98x" for Api3 is corrected to
 2.97x with it. Second, the why-sentences: their bands read the numbers
-they describe now. A 5-10% weekly move is not flat, so 42 rows that
+they describe now. A 5-10% weekly move is not flat, so 43 rows that
 read "flat seven-day growth" while moving 5-10% in a week now read
 "modest seven-day growth" or "modest seven-day decline", and only a
 move within 5% reads flat. Nine rows aged 300-364 days read "half a
