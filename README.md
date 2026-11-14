@@ -6,6 +6,27 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-14)
+
+Radar-14 keeps radar-13's formula and every implied value, and fixes the
+gas-token map radar-13 got wrong in one place and left vague in three.
+Fluent's gas token is ETH, not BLEND: Fluent is an Ethereum zk-rollup and
+BLEND is for staking, governance and incentives, never for gas, so the Vena
+Finance plan told its farmer to fund a wallet with a token that cannot pay
+for a transaction. Three chains radar-13 left on the generic wording now
+name a token the record settles: Pharos's is PROS (its Pacific Mainnet went
+live on 28 April 2026, chain ID 1672, with gas paid in PROS; PHRS is the
+testnet token only), Strato's is USDST today (its own tokenomics docs: every
+transaction pays 0.01 USDST, and paying gas in STRATO is the planned design,
+not the live one), and Qubic's is QUBIC as energy (plain transfers are
+feeless, but smart-contract execution burns QUBIC, so a farm's contract
+calls still need it). One chain stays generic: BSquared, where B2 pays gas
+on the hub and BTC on the rollup and the sources disagree on which a farmer
+needs. So 33 of the 34 rows name a real token, Tempo names a USD stablecoin,
+and Proton says transactions carry no gas fee. The board is unchanged: same
+195 rows, same ranks, same implied values; only the farm-plan wording moves,
+on 4 rows, and the screenshots are retaken for the radar-14 label.
+
 ## The model (radar-13)
 
 Radar-13 keeps radar-12's formula and every implied value, and fixes two
@@ -189,12 +210,13 @@ shown with their market caps. Farm plans are seven steps each, derived from
 the protocol's category, chains, TVL and age, with a cost and a time on every
 step, one wallet per protocol so the farm does not look like a Sybil cluster.
 The wallet step names the gas token of the protocol's own first chain,
-checked against the chain's own documentation, never guessed: 30 of the 34
+checked against the chain's own documentation, never guessed: 33 of the 34
 rows whose first chain was not a household name now name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
-says transactions carry no gas fee because it charges none. Four chains stay
-on the generic wording because no public record settles their gas token
-(BSquared, Pharos, Strato, Qubic). The weekly action, the number worth
+says transactions carry no gas fee because it charges none. One chain stays
+on the generic wording because no public record settles its gas token
+(BSquared: B2 pays gas on its hub, BTC on its rollup, and the sources
+disagree on which a farmer needs). The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32

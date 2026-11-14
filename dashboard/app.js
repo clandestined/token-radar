@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-13). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-14). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.

@@ -1,4 +1,4 @@
-// Token Radar's model (radar-13): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-14): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-13';
+export const MODEL_VERSION = 'radar-14';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -602,12 +602,22 @@ function trackFor(p: SnapshotProtocol): string {
  * HASH (its gas-and-fees docs), Noble's is USDC (its USDC fee model), Manta Pacific's, Reya's, Morph's, RISE's
  * and Robinhood Chain's is ETH (each an Ethereum L2 with ETH gas), Mezo's is BTC, XION's is XION, RSK's is RBTC
  * (Rootstock's gas docs), Kava's is KAVA, Canton's is CC (its tokenomics docs: traffic fees are paid in CC),
- * Bifrost Network's is BFC, Fluent's is BLEND, Stacks' is STX (its fees docs: microSTX), Plume's is PLUME, and
- * Klaytn's is KAIA (KLAY migrated to KAIA at the Kaia merger). Tempo has no native gas token: fees are paid in
- * any supported USD stablecoin, so the step names that instead of a ticker. Four chains stay on the generic
- * wording because no public record settles their gas token: BSquared (B2 on its hub, BTC on its rollup), Pharos
- * (PHRS on its testnet, its mainnet token unclear), Strato and Qubic. Proton returns null: XPR Network charges
- * no gas fee, so the wallet step says so instead of naming a token that does not exist. */
+ * Bifrost Network's is BFC, Fluent's is ETH (an Ethereum zk-rollup: BLEND
+ * is for staking, governance and incentives, never for gas, which radar-13
+ * had wrong), Stacks' is STX (its fees docs: microSTX), Plume's is PLUME, and
+ * Klaytn's is KAIA (KLAY migrated to KAIA at the Kaia merger). Pharos's is
+ * PROS (its Pacific Mainnet went live on 28 April 2026, chain ID 1672, with
+ * gas paid in PROS; PHRS is the testnet token only), Strato's is USDST today
+ * (its tokenomics docs: every transaction pays 0.01 USDST, and paying gas in
+ * STRATO is the planned design, not the live one), and Qubic's is QUBIC as
+ * energy (plain transfers are feeless, but smart-contract execution burns
+ * QUBIC, so a farm's contract calls still need it). Tempo has no native gas
+ * token: fees are paid in any supported USD stablecoin, so the step names
+ * that instead of a ticker. One chain stays on the generic wording because
+ * no public record settles its gas token: BSquared (B2 pays gas on its hub,
+ * BTC on its rollup, and the sources disagree on which a farmer needs).
+ * Proton returns null: XPR Network charges no gas fee, so the wallet step
+ * says so instead of naming a token that does not exist. */
 function gasTokenFor(chain: string): string | null {
   if (chain === 'Proton') return null;
   const known: Record<string, string> = {
@@ -616,7 +626,7 @@ function gasTokenFor(chain: string): string | null {
     Stellar: 'XLM', Flare: 'FLR', Berachain: 'BERA', Mantle: 'MNT', Sonic: 'S', Sei: 'SEI', Celo: 'CELO', Ronin: 'RON', Bittensor: 'TAO', Algorand: 'ALGO', Ripple: 'XRP', Starknet: 'STRK', Monad: 'MON',
     Arc: 'USDC', Provenance: 'HASH', Plasma: 'XPL', 'Robinhood Chain': 'ETH', RISE: 'ETH', Noble: 'USDC', Manta: 'ETH', Mezo: 'BTC', XION: 'XION',
     'Reya Network': 'ETH', Tempo: 'a USD stablecoin', Stable: 'USDT0', Morph: 'ETH', RSK: 'RBTC', Klaytn: 'KAIA', Kava: 'KAVA', Canton: 'CC',
-    'Bifrost Network': 'BFC', Fluent: 'BLEND', Stacks: 'STX', 'Plume Mainnet': 'PLUME',
+    'Bifrost Network': 'BFC', Fluent: 'ETH', Stacks: 'STX', 'Plume Mainnet': 'PLUME', Pharos: 'PROS', Strato: 'USDST', Qubic: 'QUBIC',
   };
   return known[chain] ?? `${chain}'s native gas token`;
 }
@@ -692,12 +702,13 @@ function exitFor(p: SnapshotProtocol): string {
  * 1 and 4 used to read identically for every protocol on the same chain
  * (one step-1 string covered 55 rows), which made the plan look templated
  * even where the action differed. The gas token is the chain's own, checked
- * against its documentation, never guessed: 30 of the 34 rows whose first
+ * against its documentation, never guessed: 33 of the 34 rows whose first
  * chain was not in the map now name a verified token, and the one chain
  * that charges no gas at all (Proton) says so instead of naming a token
  * that does not exist, and its cost lines say the same, so no step prices
- * gas that does not exist. Four chains stay on the generic wording because no
- * public record settles their gas token (BSquared, Pharos, Strato, Qubic).
+ * gas that does not exist. One chain stays on the generic wording because no
+ * public record settles its gas token: BSquared, where B2 pays gas on the hub
+ * and BTC on the rollup, and the sources disagree on which a farmer needs.
  * Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
