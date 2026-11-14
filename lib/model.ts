@@ -1,4 +1,4 @@
-// Token Radar's model (radar-16): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-18): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-17';
+export const MODEL_VERSION = 'radar-18';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -511,13 +511,28 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   const name = p.name;
   if (c.includes('collateral market')) return `Deposit $${capital} of wstETH into a ${name} vault on ${chain}, delegate the collateral to an operator securing a network, and keep the vault shares in your wallet.`;
   if (c.includes('interest rate')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain} and open one small long or short position on a funding-rate market, then hold it to maturity.`;
+  if (c.includes('uncollateralized')) return `Deposit $${capital} of USDC into the ${name} credit market on ${chain} to fund uncollateralized loans and keep the yield-bearing receipt token in your wallet.`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Supply $${capital} of USDC to ${name} on ${chain} as collateral and borrow a small amount against it, then repay the borrow.`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `Provide $${capital} of liquidity to ${name}'s main pool on ${chain} in a balanced pair and keep the position open.`;
+  if (c === 'dexs') return `Provide $${capital} of liquidity to ${name}'s main pool on ${chain} in a balanced pair and keep the position open.`;
+  // A leveraged vault is not a pool: 3F loops tokenized RWAs through
+  // Morpho and Origami loops yield-bearing assets through lending
+  // markets, and neither has a main pool to provide liquidity to. The
+  // old shape lumped them with the DEXs, so both plans told their farmer
+  // to LP into a pool that does not exist. And the DEX test used to be
+  // includes('dex'), which also caught Indexes — "indexes" contains
+  // "dex" — so Set Protocol's plan told its farmer to LP into a pool
+  // instead of buying its index token; the index shape below it was
+  // unreachable. The test is now the category itself.
+  if (c.includes('leveraged farm')) return `Deposit $${capital} of USDC into a ${name} leveraged vault on ${chain} and keep the vault receipt token in your wallet.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Deposit $${capital} of USDC into a ${name} vault on ${chain} and keep the vault shares in your wallet.`;
   if (c.includes('perpetual') || c.includes('derivative')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain}, open one small hedged trade, then close it.`;
   if (c.includes('prediction')) return `Fund your ${name} account with $${capital} on ${chain} and place one small market position.`;
   if (c.includes('stable')) return `Mint or deposit $${capital} of the stable asset through ${name} on ${chain} and hold it in your wallet.`;
-  if (c.includes('rwa')) return `Mint $${capital} of ${name}'s yield-bearing asset on ${chain} and hold it for the full period.`;
+  // "Buy or mint": some RWA assets are minted (OpenTrade, Plume Vaults)
+  // and some are bought on a marketplace (Lofty sells tokenized property
+  // shares, it mints nothing for the buyer), so one verb was wrong for
+  // half the category.
+  if (c.includes('rwa')) return `Buy or mint $${capital} of ${name}'s yield-bearing asset on ${chain} and hold it for the full period.`;
   if (c.includes('insurance')) return `Buy $${capital} of cover from ${name} on ${chain} and keep the policy active.`;
   if (c.includes('basis') || c.includes('options')) return `Deposit $${capital} of USDC into ${name}'s strategy on ${chain} and keep the position open.`;
   if (c.includes('liquidity manager')) return `Deposit $${capital} of USDC into a ${name} managed pool on ${chain} and keep the managed position open.`;
@@ -558,8 +573,10 @@ function weeklyActionFor(p: SnapshotProtocol): string {
   const name = p.name;
   if (c.includes('collateral market')) return `Check the rewards the ${name} vault paid that week and leave them compounding instead of withdrawing them.`;
   if (c.includes('interest rate')) return `Check the funding-rate position on ${name} each week and adjust it when the underlying rate moves.`;
+  if (c.includes('uncollateralized')) return `Check the yield the ${name} credit market paid that week and leave it compounding instead of withdrawing it.`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Repay a small part of the borrow on ${name} and borrow it back, so the position moves every week instead of sitting still.`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `Swap a small amount through ${name}'s main pool each week, alternating the direction, so the wallet trades as well as holds.`;
+  if (c === 'dexs') return `Swap a small amount through ${name}'s main pool each week, alternating the direction, so the wallet trades as well as holds.`;
+  if (c.includes('leveraged farm')) return `Check the vault's leverage ratio on ${name} each week and add a small top-up when it drifts from its target, so the position does not sit untouched.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Claim any rewards the ${name} vault shows each week and restake them, or add a small top-up to the vault.`;
   if (c.includes('perpetual') || c.includes('derivative')) return `Open and close one small hedged trade on ${name} each week, keeping the size tiny and the margin untouched.`;
   if (c.includes('prediction')) return `Settle one small market position on ${name} each week and open the next one only after the first closes.`;
@@ -590,8 +607,10 @@ function trackFor(p: SnapshotProtocol): string {
   let note: string;
   if (c.includes('collateral market')) note = `the vault share balance, the operator it is delegated to and any points balance the protocol shows.`;
   else if (c.includes('interest rate')) note = `the margin balance and the fixed rate the position locked in.`;
+  else if (c.includes('uncollateralized')) note = `the receipt token balance and the yield it paid that week.`;
   else if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) note = `the borrow amount, the collateral ratio and the health factor.`;
-  else if (c.includes('dex') || c.includes('leveraged farm')) note = `the pool share and the fees the position earned.`;
+  else if (c === 'dexs') note = `the pool share and the fees the position earned.`;
+  else if (c.includes('leveraged farm')) note = `the vault receipt token balance, the leverage ratio and the yield it earned that week.`;
   else if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) note = `the vault share balance and any points balance the protocol shows.`;
   else if (c.includes('perpetual') || c.includes('derivative')) note = `the margin balance and the outcome of each trade.`;
   else if (c.includes('prediction')) note = `each settled position and its outcome.`;
@@ -658,9 +677,18 @@ function gasTokenFor(chain: string): string | null {
 function claimFor(p: SnapshotProtocol): string {
   const c = (p.category ?? '').toLowerCase();
   const name = p.name;
+  // Two claim steps the generic page cannot carry. A Lightning channel
+  // pays routing fees straight into the channel balance: there is no
+  // rewards page, and nothing to claim. And an uncollateralized credit
+  // market pays its yield through the receipt token, with no rewards
+  // page announced either, so the step says to check for an
+  // announcement instead of naming a page that does not exist.
+  if (c.includes('payments')) return `Check the channel balance in your own node software for the routing fees the channel earned — they land in the balance automatically, there is no rewards page to claim from, and never pay to claim or follow a claim link in a message.`;
+  if (c.includes('uncollateralized')) return `Before you withdraw, check ${name}'s own site for any rewards announcement and claim only from the link it publishes, never from a link in a message; if it announces no rewards, there is nothing to claim.`;
   let page: string;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) page = `the ${name} vault's own points or rewards page`;
-  else if (c.includes('dex') || c.includes('leveraged farm')) page = `${name}'s own pool incentives or points page`;
+  else if (c === 'dexs') page = `${name}'s own pool incentives or points page`;
+  else if (c.includes('leveraged farm')) page = `${name}'s own leveraged vault rewards page`;
   else if (c.includes('collateral market')) page = `${name}'s own vault rewards page`;
   else if (c.includes('interest rate')) page = `${name}'s own funding-rate rewards page`;
   else if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) page = `${name}'s own lending rewards or points page`;
@@ -677,7 +705,6 @@ function claimFor(p: SnapshotProtocol): string {
   else if (c.includes('cedefi')) page = `${name}'s own yield rewards page`;
   else if (c === 'farm') page = `${name}'s own farm rewards page`;
   else if (c.includes('anchor btc') || c.includes('decentralized btc')) page = `${name}'s own BTC rewards page`;
-  else if (c.includes('payments')) page = `${name}'s own routing rewards page`;
   else if (c.includes('otc')) page = `${name}'s own trading rewards page`;
   else if (c === 'restaking') page = `${name}'s own restaking rewards page`;
   else if (c.includes('governance')) page = `${name}'s own governance rewards page`;
@@ -694,14 +721,16 @@ function exitFor(p: SnapshotProtocol): string {
   const head = `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then `;
   const tail = `, close the log and retire the wallet.`;
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `${head}withdraw the vault shares from ${name}${tail}`;
-  if (c.includes('dex') || c.includes('leveraged farm')) return `${head}remove the liquidity from ${name}${tail}`;
+  if (c === 'dexs') return `${head}remove the liquidity from ${name}${tail}`;
+  if (c.includes('leveraged farm')) return `${head}redeem the vault receipt token from ${name} and withdraw the underlying asset${tail}`;
   if (c.includes('collateral market')) return `${head}withdraw the collateral from the ${name} vault${tail}`;
   if (c.includes('interest rate')) return `${head}close the funding-rate position on ${name}${tail}`;
+  if (c.includes('uncollateralized')) return `${head}withdraw the deposit from the ${name} credit market${tail}`;
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `${head}repay the borrow, withdraw the collateral from ${name}${tail}`;
   if (c.includes('perpetual') || c.includes('derivative')) return `${head}close any open trade, withdraw the margin from ${name}${tail}`;
   if (c.includes('prediction')) return `${head}close any open position on ${name}${tail}`;
   if (c.includes('stable')) return `${head}redeem the stable asset from ${name}${tail}`;
-  if (c.includes('rwa')) return `${head}redeem the yield-bearing asset from ${name}${tail}`;
+  if (c.includes('rwa')) return `${head}sell or redeem the yield-bearing asset from ${name}${tail}`;
   if (c.includes('insurance')) return `${head}cancel the cover from ${name}${tail}`;
   if (c.includes('basis') || c.includes('options')) return `${head}close the strategy position on ${name}${tail}`;
   if (c.includes('liquidity manager')) return `${head}remove the managed liquidity from ${name}${tail}`;
@@ -848,6 +877,62 @@ const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
     why: 'The snapshot lists Abstract\u2019s chains as ["Ethereum"] — it settles on Ethereum — but Abstract is its own Ethereum L2 network, and its gas is ETH paid on Abstract, not on Ethereum mainnet.',
     chainLabel: 'Abstract',
     gasToken: 'ETH',
+  },
+  // USDD 2.0 is a vault stablecoin, so the CDP shape is half right: a
+  // farmer does deposit collateral and mint USDD. But the shape names
+  // USDC as the collateral, and USDD vaults take TRX, sTRX, USDT or
+  // WBTC (ETH and WBTC on Ethereum), never USDC — USDC only swaps 1:1
+  // for USDD through the Peg Stability Module. And the yield does not
+  // come from a rewards page: the minted USDD is staked as sUSDD, and
+  // the staking rate accrues automatically in the sUSDD exchange rate.
+  // (DefiLlama stablecoin page; BingX USDD 2.0 guide.)
+  usdd: {
+    why: 'DefiLlama lists USDD under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but USDD 2.0 vaults take TRX, sTRX, USDT or WBTC, never USDC, and the yield comes from staking the minted USDD as sUSDD.',
+    action: (p, capital, chain) => `Stake $${capital} of TRX in a USDD vault on ${chain} to mint USDD, then stake the USDD as sUSDD to earn the staking rate, and keep the sUSDD in your wallet.`,
+    weekly: (p) => `Check the sUSDD balance and the staking rate ${p.name} shows each week, and add a small TRX top-up to the vault when the balance is flat.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the vault collateral ratio, the sUSDD balance and the staking rate it shows.`,
+    claim: (p) => `sUSDD yield accrues automatically in its exchange rate, so there is no rewards page to claim from — check the rate on the official ${p.name} page, and never pay to claim or follow a claim link in a message.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the sUSDD from ${p.name} for USDD, repay the vault mint and withdraw the TRX collateral, close the log and retire the wallet.`,
+  },
+  // DeFi Saver is a non-custodial management layer, not a protocol that
+  // takes deposits: "Your assets are never deposited on DeFi Saver —
+  // we're just an additional layer between you and the protocols." The
+  // CDP shape would tell its farmer to supply USDC to DeFi Saver itself
+  // as collateral and borrow against it, which no screen on the site
+  // lets them do. Its plan opens a position through DeFi Saver on a
+  // protocol it manages, and turns on the automation that is the reason
+  // to use it. (defisaver.com)
+  'defi-saver-asset-management': {
+    why: 'DefiLlama lists Defi Saver Asset Management under CDP Manager, so the CDP shape would tell its farmer to supply USDC to it as collateral — but DeFi Saver is a non-custodial management layer that takes no deposits at all.',
+    action: (p, capital, chain) => `Open a collateralized position through ${p.name} on ${chain} — deposit ETH as collateral into a vault it manages, borrow a small amount of stablecoin, and turn on its automation to keep the ratio safe.`,
+    weekly: (p) => `Check the automation ${p.name} runs on the position each week and adjust the stop-loss or leverage rules when the collateral ratio moves.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the collateral ratio, the health factor and each automation action it took that week.`,
+    claim: (p) => `${p.name} runs no points program — check its official site for any rewards announcement; if it announces none, there is nothing to claim, and never pay to claim or follow a claim link in a message.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then turn off the automation, repay the borrow and withdraw the collateral through ${p.name}, close the log and retire the wallet.`,
+  },
+  // dTAO is Bittensor's staking system, not an AMM pool: staking TAO
+  // into a subnet swaps it into that subnet's alpha token through the
+  // subnet pool, and rewards are paid in alpha. The DEX shape would
+  // tell its farmer to provide liquidity to a "main pool" in a balanced
+  // pair, swap through it weekly and remove the liquidity — none of
+  // which dTAO offers. (Bittensor docs: Staking.)
+  'bittensor-dtao': {
+    why: 'DefiLlama lists Bittensor dTAO under Dexs, so the DEX shape would tell its farmer to provide liquidity to a main pool in a balanced pair — but dTAO is Bittensor\u2019s staking system, not an AMM pool.',
+    action: (p, capital, chain) => `Stake $${capital} of TAO with a validator on a Bittensor subnet through ${p.name} on ${chain} and hold the subnet's alpha tokens in your wallet.`,
+    weekly: (p) => `Check the alpha rewards the subnet paid that week and restake them, or add a small top-up to the stake.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the staked TAO balance, the alpha balance and the rewards it earned that week.`,
+    claim: (p) => `dTAO rewards are paid in alpha automatically, so there is no rewards page to claim from — check the position in your own wallet, and never pay to claim or follow a claim link in a message.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unstake the alpha from the subnet on ${p.name} and swap it back to TAO, close the log and retire the wallet.`,
+  },
+  // Polymarket runs no points program and has no token claim page: its
+  // rewards are Liquidity Rewards and Holding Rewards, paid in pUSD on
+  // its rewards page. Only the claim step is wrong — the rest of the
+  // prediction shape (fund the account, place and settle positions) is
+  // right — so only the claim step is corrected here.
+  // (Polymarket docs; TraderComps, Oct 2026.)
+  'polymarket-international': {
+    why: 'The prediction shape would send its farmer to a "market rewards page" to claim — but Polymarket runs no points program and has no token claim page; its rewards are Liquidity Rewards and Holding Rewards, paid in pUSD.',
+    claim: (p) => `Check ${p.name}'s own rewards page for the liquidity rewards and holding yield it pays in pUSD — there is no points program and no token claim page; if a token is ever announced, claim only from the link the official site publishes, never from a link in a message.`,
   },
 };
 

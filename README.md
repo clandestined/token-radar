@@ -6,6 +6,52 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-18)
+
+Radar-18 keeps radar-17's formula and every implied value, and fixes the
+farm plans the category shape got wrong in the fourth miscategorization
+round — plus one real bug. First, the bug: the DEX shape's test was
+`includes('dex')`, which also matches Indexes — "indexes" contains
+"dex" — so Set Protocol (rank 171), the board's only Indexes row, was
+told to provide liquidity to a main pool in a balanced pair, swap
+through it weekly and remove it, instead of buying its index token,
+and the index shape written for it was unreachable in all five shape
+functions. The test is now the category itself. Second, Leveraged
+Farming gets its own shape: 3F (rank 79) is a vault protocol built on
+Morpho that loops tokenized RWAs, and Origami Finance (rank 91) loops
+yield-bearing assets through lending markets into receipt tokens — and
+neither has a main pool to provide liquidity to, so both plans now
+deposit into a leveraged vault and keep the receipt token. Third,
+Uncollateralized Lending gets its own shape: 3Jane (rank 122) is a
+credit market where lenders deposit USDC and mint the yield-bearing
+USD3 receipt token while borrowers draw uncollateralized lines on a
+credit score — nobody posts collateral and nobody borrows against a
+deposit — so its plan now deposits into the credit market and keeps the
+receipt token. Fourth, four more plans join the corrections table: USDD
+(rank 5) — its 2.0 vaults take TRX, sTRX, USDT or WBTC as collateral,
+never USDC, and its yield comes from staking the minted USDD as sUSDD,
+which accrues automatically, so there is no rewards page to claim
+from; DeFi Saver Asset Management (rank 20) — DeFi Saver is a
+non-custodial management layer that takes no deposits at all, so its
+plan opens a position through it and turns on its automation; Bittensor
+dTAO (rank 11) — dTAO is Bittensor's staking system, not an AMM pool,
+so its plan stakes TAO with a validator for a subnet's alpha tokens;
+and Polymarket International (rank 4) — it runs no points program and
+has no token claim page, so only its claim step changes, to the rewards
+page that pays Liquidity Rewards and Holding Rewards in pUSD. Fifth,
+two claim steps stop inventing pages: Lightning Network (rank 26)
+routing fees land in the channel balance automatically, so its claim
+step now says that instead of naming a routing rewards page that does
+not exist. Sixth, RWA wording: "Mint" becomes "Buy or mint" and the
+exit "redeem" becomes "sell or redeem", because Lofty sells tokenized
+property shares rather than minting them. Seventh, the detail dialog
+fits: its steps and sections are tightened so all seven steps with
+their cost lines fit inside a 1440px-tall view for the rank-1 row —
+step 7's cost line used to sit below the fold in the shipped detail
+screenshot. The board is unchanged: same 195 rows, same ranks, same
+implied values; only farm plans move, on 25 rows, and the screenshots
+are retaken for the radar-18 label.
+
 ## The model (radar-17)
 
 Radar-17 keeps radar-16's formula and every implied value, and fixes the
@@ -310,15 +356,21 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). Four plans are corrected against the
+farm runs; B2 is gas only on the Hub). Eight plans are corrected against the
 snapshot's own record, in one table (see Snapshot corrections below): Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
 plan stakes BTC for B2 rewards instead of bridging onto a network; Firelight
 is the underwriting side of an insurance design, not a buyer of cover, so its
 plan stakes FXRP in its Launch Vault for stXRP and Firelight Points instead
 of buying, renewing and cancelling cover; Mezo Earn locks BTC for a veBTC
-vote, not USDC in a governance vault; and Abstract is its own Ethereum L2,
-not Ethereum mainnet, so its plan runs on Abstract. The weekly action, the number worth
+vote, not USDC in a governance vault; Abstract is its own Ethereum L2,
+not Ethereum mainnet, so its plan runs on Abstract; USDD's vaults take TRX,
+USDT or WBTC as collateral, never USDC, and its yield comes from sUSDD;
+DeFi Saver is a management layer that takes no deposits, so its plan opens a
+position through it and automates it; Bittensor dTAO is a staking system, not
+an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points
+program, so its plan checks the rewards page that pays in pUSD instead of a
+claim page. Eight plans in all. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
@@ -336,7 +388,7 @@ them at (flat, and 365 days), never as the oldest or the fastest.
 
 ## Snapshot corrections
 
-Four farm plans follow the protocol's own documentation instead of the
+Eight farm plans follow the protocol's own documentation instead of the
 snapshot's category, because the snapshot's record mislabels the protocol.
 They live in one table, PLAN_CORRECTIONS in lib/model.ts, keyed by slug,
 each entry stating why the record is wrong and giving only the steps the
@@ -366,6 +418,28 @@ and the scoring never names a protocol.
   because it settles on Ethereum — but Abstract is its own Ethereum L2
   network (ZK Stack), and its gas is ETH paid on Abstract. The plan runs
   on Abstract instead of Ethereum mainnet.
+- USDD (rank 5): DefiLlama lists it under CDP, and the CDP shape would
+  tell its farmer to supply USDC as collateral — but USDD 2.0 vaults
+  take TRX, sTRX, USDT or WBTC (ETH and WBTC on Ethereum), never USDC,
+  and the yield comes from staking the minted USDD as sUSDD, which
+  accrues automatically in its exchange rate, so there is no rewards
+  page to claim from (DefiLlama stablecoin page; BingX USDD 2.0 guide).
+- Defi Saver Asset Management (rank 20): DefiLlama lists it under CDP
+  Manager, and the CDP shape would tell its farmer to supply USDC to it
+  as collateral — but DeFi Saver is a non-custodial management layer
+  that takes no deposits at all ("Your assets are never deposited on
+  DeFi Saver"). The plan opens a collateralized position through it on
+  a protocol it manages and turns on its automation (defisaver.com).
+- Bittensor dTAO (rank 11): DefiLlama lists it under Dexs, and the DEX
+  shape would tell its farmer to provide liquidity to a main pool in a
+  balanced pair — but dTAO is Bittensor's staking system, not an AMM
+  pool: staking TAO into a subnet swaps it into that subnet's alpha
+  token, and rewards are paid in alpha (Bittensor docs: Staking).
+- Polymarket International (rank 4): the prediction shape would send
+  its farmer to a "market rewards page" to claim — but Polymarket runs
+  no points program and has no token claim page; its rewards are
+  Liquidity Rewards and Holding Rewards, paid in pUSD. Only the claim
+  step is corrected (Polymarket docs; TraderComps, Oct 2026).
 
 ## Run it
 
