@@ -6,7 +6,21 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-8)
+## The model (radar-9)
+
+Radar-9 keeps radar-8's formula and every implied value, and fixes two
+things a reader could catch it on. First, Saturn's rank: the README and the
+model's own comments said rank 29, but the board ranks Saturn 27th, so the
+number is corrected in all three places; the dashboard already names the
+rank from the board, never from a written number. Second, the detail view
+now names the other two bounds the way radar-8 named the multiple's: a row
+whose seven-day growth the clamp binds on (5 of the 195, Shift DeFi at
++4448.47% among them) says so on its growth multiplier line and in its
+why-sentence, and a row older than the three-year maturity cap (11 of the
+195) says so on its maturity multiplier line, so a reader who sees
++4448.47% next to a 1.48x multiplier, or 5.1 years next to a 1.00x maturity
+multiplier, is told the bound did it instead of having to work it out from
+the formula.
 
 Radar-8 keeps radar-7's formula and every implied value, and fixes two
 things a reader could catch it on. First, the farm plans: steps 1 and 4
@@ -77,7 +91,7 @@ not rank are counted by exclusion on the dashboard (52 exchanges, 39 bridges,
 38 liquid staking / restaking products, 11 versioned pools, 6 wrapped / staked
 names, 1 stablecoin wrapper), so the reader can see what was set aside and
 why. One watchlist protocol is ranked although the early-radar wrapper rule
-would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 29, because a
+would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 27, because a
 watchlist slug is always ranked. The Live token view shows the 24 biggest
 live-token protocols by market cap, of 416 that record a token; the
 comparables are priced from the 119 of those with a market cap above zero,

@@ -1,4 +1,4 @@
-// Token Radar's model (radar-8): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-9): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -12,7 +12,7 @@
 // floor, not a rankability ceiling: a $2.8B protocol the list leaves out
 // (Sentora Curator) is no worse a subject than a $49M one it names. One
 // watchlist slug is ranked although the early radar would leave it out:
-// Saturn, a Stablecoin Wrapper at rank 29, because a watchlist slug is
+// Saturn, a Stablecoin Wrapper at rank 27, because a watchlist slug is
 // always ranked; the dashboard states that carve-out where it states the
 // rule. The 147 pre-token protocols the board does not rank are counted by
 // exclusion in the dashboard's data, so the reader can see what was set
@@ -120,7 +120,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-8';
+export const MODEL_VERSION = 'radar-9';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -380,7 +380,7 @@ export function isRankable(p: SnapshotProtocol): boolean {
  * watchlist rule itself puts them (an exchange first, then a bridge, then a
  * staking wrapper, then a versioned pool, then a wrapped or staked name).
  * The watchlist is the floor, so this never describes a watchlist protocol:
- * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 29 even
+ * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 27 even
  * though the wrapper rule would leave it out, because a watchlist slug is
  * always ranked. The dashboard states that carve-out where it states the
  * rule, so the board and the rule it claims can never be caught disagreeing.

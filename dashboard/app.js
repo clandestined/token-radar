@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-8). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-9). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -53,8 +53,8 @@
     else if (row.tvl_usd >= 1e8) parts.push('a large TVL');
     else if (row.tvl_usd >= 5e7) parts.push('a TVL at or above the watchlist floor');
     else parts.push('a modest TVL below the watchlist floor');
-    if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d >= 10) parts.push('fast seven-day growth');
-    else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d <= -10) parts.push('shrinking TVL over seven days');
+    if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d >= 10) parts.push('fast seven-day growth' + (row.change_7d > DATA.model.growth_cap ? ', clamped at +' + DATA.model.growth_cap + '%' : ''));
+    else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d <= -10) parts.push('shrinking TVL over seven days' + (row.change_7d < DATA.model.growth_floor ? ', clamped at ' + DATA.model.growth_floor + '%' : ''));
     else if (row.change_7d === null || row.change_7d === undefined) parts.push('seven-day growth unreported, so it is valued as flat with a small discount');
     else parts.push('flat seven-day growth');
     if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 730) parts.push('two-plus years running with no token');
@@ -477,8 +477,8 @@
         el('div', null, el('span', { text: 'Seven-day growth' }), el('b', { class: 'num', text: fmtPct(row.change_7d) })),
         el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: row.age_days === null ? 'unknown (scored as 1y)' : fmtAge(row.age_days) })),
         el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(4) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers + ' live peers') + ')' + (row.category_multiple >= DATA.model.multiple_cap ? ' — at the ' + DATA.model.multiple_cap.toFixed(2) + 'x cap' : row.category_multiple <= DATA.model.multiple_floor ? ' — at the ' + DATA.model.multiple_floor.toFixed(2) + 'x floor' : '') })),
-        el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) })),
-        el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) })),
+        el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) + (row.change_7d !== null && row.change_7d !== undefined && row.change_7d > DATA.model.growth_cap ? ' — at the +' + DATA.model.growth_cap + '% cap' : row.change_7d !== null && row.change_7d !== undefined && row.change_7d < DATA.model.growth_floor ? ' — at the ' + DATA.model.growth_floor + '% floor' : '') })),
+        el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) + (row.age_days !== null && row.age_days !== undefined && row.age_days > DATA.model.maturity_days ? ' — capped at ' + (DATA.model.maturity_days / 365) + 'y' : '') })),
         el('div', null, el('span', { text: 'Breadth multiplier' }), el('b', { class: 'num', text: String(row.breadth_multiplier) })),
         el('div', null, el('span', { text: 'Quality multiplier' }), el('b', { class: 'num', text: String(row.quality_multiplier) })),
         el('div', { class: 'big' }, el('span', { text: 'Implied value' }), el('b', { class: 'num', text: fmtUsd(row.implied_value_usd) }))
