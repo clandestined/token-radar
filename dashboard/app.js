@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-6). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-7). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -9,7 +9,8 @@
   var DATA = window.RADAR;
   if (!DATA) return;
   var app = document.getElementById('board');
-  var state = { q: '', category: 'all', chain: 'all', watch: false, minTvl: 0, tab: 'pre-token', sort: 'implied', dir: -1, selected: null, liveSort: 'mcap', liveDir: -1 };
+  var state = { q: '', category: 'all', chain: 'all', watch: false, minTvl: 0, tab: 'pre-token', sort: 'implied', dir: -1, selected: null, liveSort: 'mcap', liveDir: -1, page: 1 };
+  var PAGE_SIZE = 25;
 
   var usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   function fmtUsd(n) {
@@ -60,6 +61,7 @@
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 365) parts.push('over a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 180) parts.push('half a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days < 180) parts.push('a young protocol, seasoned only briefly');
+    else parts.push('age unreported, so it is scored as a year old');
     if (row.category_multiple >= 0.5) parts.push('a rich category multiple');
     else if (row.category_multiple <= 0.1) parts.push('a cheap category multiple');
     else if (row.category_multiple >= 0.2) parts.push('a mid-range category multiple');
@@ -100,6 +102,7 @@
     if (params.get('watch') === '1') state.watch = true;
     if (params.get('tab')) state.tab = params.get('tab');
     if (params.get('mintvl')) state.minTvl = Number(params.get('mintvl')) || 0;
+    if (params.get('page')) state.page = Math.max(1, Number(params.get('page')) || 1);
   }
   function writeHash() {
     var params = new URLSearchParams();
@@ -108,6 +111,7 @@
     if (state.chain !== 'all') params.set('chain', state.chain);
     if (state.watch) params.set('watch', '1');
     if (state.minTvl) params.set('mintvl', String(state.minTvl));
+    if (state.page > 1) params.set('page', String(state.page));
     if (state.tab !== 'pre-token') params.set('tab', state.tab);
     if (state.selected) params.set('p', state.selected);
     var next = params.toString();
@@ -165,6 +169,7 @@
     return list.sort(function (a, b) {
       var av, bv;
       if (key === 'tvl') { av = a.tvl_usd; bv = b.tvl_usd; }
+      else if (key === 'growth') { av = a.change_7d === null ? 0 : a.change_7d; bv = b.change_7d === null ? 0 : b.change_7d; }
       else if (key === 'multiple') { av = a.multiple === null ? 0 : a.multiple; bv = b.multiple === null ? 0 : b.multiple; }
       else { av = a.mcap_usd === null ? 0 : a.mcap_usd; bv = b.mcap_usd === null ? 0 : b.mcap_usd; }
       if (av < bv) return -state.liveDir;
@@ -225,27 +230,35 @@
     var categories = Array.from(new Set(DATA.rows.concat(DATA.live).map(function (r) { return r.category || 'Other'; }))).sort();
     var chains = Array.from(new Set(DATA.rows.concat(DATA.live).reduce(function (acc, r) { return acc.concat(r.chains || []); }, []))).sort();
     var search = el('input', { type: 'search', id: 'q', placeholder: 'Search name, category or chain', value: state.q, 'aria-label': 'Search the board' });
-    search.addEventListener('input', function () { state.q = search.value; writeHash(); render(); });
+    search.addEventListener('input', function () { state.q = search.value; state.page = 1; writeHash(); render(); });
     var cat = el('select', { id: 'category', 'aria-label': 'Filter by category' },
       el('option', { value: 'all', text: 'All categories' }),
       categories.map(function (c) { return el('option', { value: c, text: c, selected: c === state.category ? 'selected' : null }); })
     );
-    cat.addEventListener('change', function () { state.category = cat.value; writeHash(); render(); });
+    cat.addEventListener('change', function () { state.category = cat.value; state.page = 1; writeHash(); render(); });
     var chain = el('select', { id: 'chain', 'aria-label': 'Filter by chain' },
       el('option', { value: 'all', text: 'All chains' }),
       chains.map(function (c) { return el('option', { value: c, text: c, selected: c === state.chain ? 'selected' : null }); })
     );
-    chain.addEventListener('change', function () { state.chain = chain.value; writeHash(); render(); });
+    chain.addEventListener('change', function () { state.chain = chain.value; state.page = 1; writeHash(); render(); });
     var tvl = el('select', { id: 'mintvl', 'aria-label': 'Minimum TVL' },
       el('option', { value: '0', text: 'Any TVL' }),
       el('option', { value: '50000000', text: 'TVL $50M+', selected: state.minTvl === 50000000 ? 'selected' : null }),
       el('option', { value: '100000000', text: 'TVL $100M+', selected: state.minTvl === 100000000 ? 'selected' : null }),
       el('option', { value: '500000000', text: 'TVL $500M+', selected: state.minTvl === 500000000 ? 'selected' : null })
     );
-    tvl.addEventListener('change', function () { state.minTvl = Number(tvl.value); writeHash(); render(); });
-    var watch = el('button', { type: 'button', class: 'chipbtn', 'aria-pressed': state.watch ? 'true' : 'false', text: 'Watchlist only', onclick: function () { state.watch = !state.watch; writeHash(); render(); } });
-    var pre = el('button', { type: 'button', 'aria-pressed': state.tab === 'pre-token' ? 'true' : 'false', text: 'Pre-token', onclick: function () { state.tab = 'pre-token'; writeHash(); render(); } });
-    var live = el('button', { type: 'button', 'aria-pressed': state.tab === 'live' ? 'true' : 'false', text: 'Live token', onclick: function () { state.tab = 'live'; writeHash(); render(); } });
+    tvl.addEventListener('change', function () { state.minTvl = Number(tvl.value); state.page = 1; writeHash(); render(); });
+    var watch = el('button', { type: 'button', class: 'chipbtn', 'aria-pressed': state.watch ? 'true' : 'false', text: 'Watchlist only', onclick: function () { state.watch = !state.watch; state.page = 1; writeHash(); render(); } });
+    var pre = el('button', { type: 'button', 'aria-pressed': state.tab === 'pre-token' ? 'true' : 'false', text: 'Pre-token', onclick: function () { state.tab = 'pre-token'; state.page = 1; writeHash(); render(); } });
+    var live = el('button', { type: 'button', 'aria-pressed': state.tab === 'live' ? 'true' : 'false', text: 'Live token', onclick: function () { state.tab = 'live'; state.page = 1; writeHash(); render(); } });
+    // The count names the page as well as the filter, so a reader on page 4
+    // of a filtered board knows how much board is left.
+    var filtered = rows().length;
+    var pages = Math.max(1, Math.ceil(filtered / PAGE_SIZE));
+    var page = Math.min(state.page, pages);
+    var countText = state.tab === 'pre-token'
+      ? (pages > 1 ? Math.min(PAGE_SIZE, filtered - (page - 1) * PAGE_SIZE) + ' of ' + filtered + ' rows shown · page ' + page + ' of ' + pages : filtered + ' of ' + DATA.board_size + ' rows shown')
+      : liveRows().length + ' of ' + DATA.live.length + ' live-token protocols shown';
     return el('div', { class: 'controls' },
       el('div', { class: 'field grow' }, el('label', { for: 'q', text: 'Search' }), search),
       el('div', { class: 'field' }, el('label', { for: 'category', text: 'Category' }), cat),
@@ -253,13 +266,13 @@
       el('div', { class: 'field' }, el('label', { for: 'mintvl', text: 'Minimum TVL' }), tvl),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Scope' }), watch),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live)),
-      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' of ' + DATA.board_size + ' rows shown' : liveRows().length + ' of ' + DATA.live.length + ' live-token protocols shown' })
+      el('span', { class: 'count', text: countText })
     );
   }
 
   function sortHeader(key, label) {
     return el('th', { scope: 'col' },
-      el('button', { type: 'button', onclick: function () { if (state.sort === key) state.dir = -state.dir; else { state.sort = key; state.dir = -1; } render(); } },
+      el('button', { type: 'button', onclick: function () { if (state.sort === key) state.dir = -state.dir; else { state.sort = key; state.dir = -1; } state.page = 1; render(); } },
         label,
         state.sort === key ? el('span', { 'aria-hidden': 'true', text: state.dir < 0 ? ' v' : ' ^' }) : null
       )
@@ -281,12 +294,19 @@
       return el('div', { class: 'panel' }, el('div', { class: 'empty' },
         el('h2', { text: 'No protocol matches that filter' }),
         el('p', { text: 'Clear the search or pick another category, chain or TVL floor to see the board again.' }),
-        el('button', { class: 'button primary', type: 'button', text: 'Clear filters', onclick: function () { state.q = ''; state.category = 'all'; state.chain = 'all'; state.watch = false; state.minTvl = 0; writeHash(); render(); } })
+        el('button', { class: 'button primary', type: 'button', text: 'Clear filters', onclick: function () { state.q = ''; state.category = 'all'; state.chain = 'all'; state.watch = false; state.minTvl = 0; state.page = 1; writeHash(); render(); } })
       ));
     }
+    // One page of the board at a time: 195 rows in a single table is a wall
+    // to scroll, and a page of 25 reads at a glance. The page lives in the
+    // hash, so a link to page 4 opens on page 4, and a filter that shrinks
+    // the board below the current page pulls it back to the last page.
+    var pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    var pageList = list.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
     var max = DATA.rows[0].implied_value_usd || 1;
     var tbody = el('tbody');
-    list.forEach(function (r) {
+    pageList.forEach(function (r) {
       var growth = r.change_7d === null ? 'n/a' : fmtPct(r.change_7d);
       var growthClass = r.change_7d === null ? '' : r.change_7d >= 0 ? 'pos' : 'neg';
       var tr = el('tr', {
@@ -312,7 +332,7 @@
       );
       tbody.appendChild(tr);
     });
-    return el('div', { class: 'panel' },
+    var panel = el('div', { class: 'panel' },
       el('div', { class: 'table-wrap' },
         el('table', null,
           el('caption', { class: 'sub', text: 'Pre-token protocols, strongest implied value first. Select a row for its model breakdown and farm plan.' }),
@@ -330,6 +350,13 @@
         )
       )
     );
+    if (pages <= 1) return panel;
+    var pager = el('div', { class: 'pager' },
+      el('button', { class: 'button', type: 'button', disabled: state.page <= 1 ? 'disabled' : null, text: '← Previous', onclick: function () { if (state.page > 1) { state.page--; writeHash(); render(); } } }),
+      el('span', { class: 'count', text: 'Page ' + state.page + ' of ' + pages + ' — ' + pageList.length + ' rows' }),
+      el('button', { class: 'button', type: 'button', disabled: state.page >= pages ? 'disabled' : null, text: 'Next →', onclick: function () { if (state.page < pages) { state.page++; writeHash(); render(); } } })
+    );
+    return el('div', null, panel, pager);
   }
 
   function liveTable() {
@@ -338,7 +365,7 @@
       return el('div', { class: 'panel' }, el('div', { class: 'empty' },
         el('h2', { text: 'No live-token protocol matches that filter' }),
         el('p', { text: 'Clear the search or pick another category, chain or TVL floor to see the live set again.' }),
-        el('button', { class: 'button primary', type: 'button', text: 'Clear filters', onclick: function () { state.q = ''; state.category = 'all'; state.chain = 'all'; state.watch = false; state.minTvl = 0; writeHash(); render(); } })
+        el('button', { class: 'button primary', type: 'button', text: 'Clear filters', onclick: function () { state.q = ''; state.category = 'all'; state.chain = 'all'; state.watch = false; state.minTvl = 0; state.page = 1; writeHash(); render(); } })
       ));
     }
     var tbody = el('tbody');
@@ -357,7 +384,7 @@
       el('div', { class: 'table-wrap' },
         el('table', null,
           el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and the market-cap-to-TVL ratios of the ' + DATA.live_priced + ' with a market cap are the comparables the model prices the board with.' }),
-          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Protocol' }), liveSortHeader('tvl', 'TVL'), el('th', { scope: 'col', text: '7d' }), liveSortHeader('mcap', 'Market cap'), liveSortHeader('multiple', 'Mcap / TVL'), el('th', { scope: 'col', text: 'Token' }))),
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Protocol' }), liveSortHeader('tvl', 'TVL'), liveSortHeader('growth', '7d'), liveSortHeader('mcap', 'Market cap'), liveSortHeader('multiple', 'Mcap / TVL'), el('th', { scope: 'col', text: 'Token' }))),
           tbody
         )
       )
@@ -374,10 +401,10 @@
     var saturnText = saturn ? ' One watchlist protocol is ranked although the wrapper rule would leave it out: Saturn, a Stablecoin Wrapper, sits at rank ' + saturn.rank + ' because the watchlist is the floor and a watchlist slug is always ranked.' : '';
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the whole market median with a weight of ' + m.shrink_peers + ' peers: a category with one live peer never sets its own price, and a category with no live peer uses the market median outright.' }),
-      el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories priced here have fewer than three live peers, so most multiples would rest on one or two protocols without it. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(4) + 'x') + '.' }),
+      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the whole market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
+      el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories priced here have fewer than three live peers, so most multiples would rest on one or two protocols without it. Shrinking in log space matters because the old arithmetic shrink clamped the raw median first: seven single-peer categories, from Options at 1.51x to Prediction Market at 400.20x, all priced at one identical multiple, and a category whose peers trade at 0.002x was lifted to the market by the floor. Now each prices from its own peer, still pulled most of the way to the market, and still capped. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(4) + 'x') + '.' }),
       el('div', { class: 'formula' },
-        'multiple = (peers x categoryMedian + ' + m.shrink_peers + ' x marketMedian) / (peers + ' + m.shrink_peers + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
+        'multiple = exp((peers x ln(categoryMedian) + ' + m.shrink_peers + ' x ln(marketMedian)) / (peers + ' + m.shrink_peers + ')), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
       ),
       el('div', { class: 'formula' },
         'implied = round( tvl_usd x multiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'

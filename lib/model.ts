@@ -1,4 +1,4 @@
-// Token Radar's model (radar-6): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-7): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -22,13 +22,19 @@
 // function applied to every row. No protocol name is ever special-cased.
 //
 //   comparable  = median(mcap_usd / tvl_usd) over the live-token protocols
-//                 in the same category, clamped to [0.05, 0.80], then shrunk
-//                 toward the whole market's median with a weight of 3 peers:
-//                 (peers x categoryMedian + 3 x marketMedian) / (peers + 3).
-//                 A category with one live peer never sets its own price: a
-//                 single peer's ratio, however extreme, is pulled most of the
-//                 way to the market. Categories with no live peer use the
-//                 whole market's median outright. Exchange tokens are left
+//                 in the same category, shrunk toward the whole market's
+//                 median in log space with a weight of 3 peers, then clamped
+//                 to [0.05, 0.80]:
+//                 exp((peers x ln(categoryMedian) + 3 x ln(marketMedian))
+//                     / (peers + 3)).
+//                 Ratios multiply, so the shrinkage averages logarithms and
+//                 the raw median is never clamped first: a 400x peer and a
+//                 1.5x peer no longer collapse to one multiple, and a 0.002x
+//                 peer is not lifted to the market by a floor clamp either.
+//                 A category with one live peer still never prices at its
+//                 peer's ratio: the market weight pulls it most of the way
+//                 back, and the cap bounds the rest. Categories with no live
+//                 peer use the whole market's median outright. Exchange tokens are left
 //                 out of the comparable population: an exchange token's
 //                 market cap prices the exchange's business, not the TVL
 //                 the snapshot records for it.
@@ -114,7 +120,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-6';
+export const MODEL_VERSION = 'radar-7';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -256,16 +262,30 @@ export function isPreToken(p: SnapshotProtocol): boolean {
 
 /**
  * The category comparables: for each category, the median market-cap-to-TVL
- * ratio of the live-token protocols in it, clamped to the model's band, then
- * shrunk toward the whole market's median with a weight of `shrink_peers`
- * peers. A category with one live peer (Risk Curators: Api3 alone, at 2.98x)
- * never sets its own price: its shrunk multiple sits most of the way to the
- * market instead of at the 0.80 cap. Categories with no live peer use the
- * whole market's median outright. Exchange tokens are left out of the
- * population entirely: an exchange token's market cap prices the exchange's
- * business, not the TVL the snapshot records for it (Nexo's ratio is 69x on
- * $10M of TVL, OKX's is 0.07x on $26B), so the comparables are the
- * live-token DeFi protocols with a market cap above zero, the same
+ * ratio of the live-token protocols in it, shrunk toward the whole market's
+ * median in log space with a weight of `shrink_peers` peers, then clamped to
+ * the model's band. Ratios multiply, so the shrinkage averages logarithms:
+ * exp((peers x ln(categoryMedian) + 3 x ln(marketMedian)) / (peers + 3)).
+ * The raw median is never clamped before shrinking. The old arithmetic
+ * shrink clamped it to [0.05, 0.80] first, which erased every difference
+ * between rich single-peer categories: Chain (3.03x), Collateral Management
+ * (12.16x), Decentralized AI (2.06x), NFT Marketplace (2.00x), Options
+ * (1.51x), Prediction Market (400.20x) and Risk Curators (2.97x) all priced
+ * at one identical 0.3845x, 40 board rows on a single number. In log space
+ * they price at 0.4607x, 0.6523x, 0.4185x, 0.4155x, 0.3875x, the 0.80 cap
+ * and 0.4587x: each from its own peer, still pulled most of the way to the
+ * market by the 3-peer weight. The same clamp erased the cheap end too: a
+ * category whose peers trade at 0.002x was lifted to 0.1676x by the floor
+ * before shrinking, so Staking Pool (SSV at 0.00x on $10.2B of TVL) priced
+ * as if it were a mid-market category; in log space it prices at the 0.05
+ * floor. A single peer still never sets its own price: Risk Curators'
+ * 2.97x peer pulls the multiple to 0.4587x, not to 2.97x, and an extreme
+ * peer still lands at the cap, which is the model's bound. Categories with
+ * no live peer use the whole market's median outright. Exchange tokens are
+ * left out of the population entirely: an exchange token's market cap prices
+ * the exchange's business, not the TVL the snapshot records for it (Nexo's
+ * ratio is 69x on $10M of TVL, OKX's is 0.07x on $26B), so the comparables
+ * are the live-token DeFi protocols with a market cap above zero, the same
  * population the dashboard names when it says how many protocols price the
  * comparables. The map is computed from this snapshot alone, at run time,
  * never hard-coded.
@@ -290,8 +310,12 @@ export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { 
   const market = round4(Math.min(model.multiple_cap, Math.max(model.multiple_floor, marketRaw)));
   const out = new Map<string, { multiple: number; raw: number; peers: number }>();
   for (const [key, list] of byCategory) {
-    const raw = Math.min(model.multiple_cap, Math.max(model.multiple_floor, median(list) ?? marketRaw));
-    const shrunk = (list.length * raw + model.shrink_peers * market) / (list.length + model.shrink_peers);
+    const raw = median(list) ?? marketRaw;
+    // Log space, raw unclamped: the shrinkage averages the logarithms of
+    // the category median and the market median, so a 400x peer and a 1.5x
+    // peer keep their distance instead of collapsing at a clamp, and a
+    // 0.002x peer keeps its cheapness instead of being lifted by a floor.
+    const shrunk = Math.exp((list.length * Math.log(raw) + model.shrink_peers * Math.log(market)) / (list.length + model.shrink_peers));
     // Rounded to four decimals BEFORE use: the dashboard recomputes each row
     // from the multiple board.json carries, so the multiple it uses must be
     // the multiple the board states, not a longer decimal behind it. An

@@ -6,12 +6,12 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-6)
+## The model (radar-7)
 
 One function scores every row, from the snapshot's own figures only:
 
 ```
-multiple = (peers x categoryMedian + 3 x marketMedian) / (peers + 3),
+multiple = exp((peers x ln(categoryMedian) + 3 x ln(marketMedian)) / (peers + 3)),
   clamped to [0.05, 0.80]; categoryMedian is the median market-cap-to-TVL
   ratio of the live-token protocols in the same category, marketMedian the
   whole market's median
@@ -22,11 +22,26 @@ implied = round( tvl_usd x multiple
   x quality )
 ```
 
-The comparable is shrunk toward the market median with a weight of 3 peers:
-a category with one live peer never sets its own price. On this snapshot the
+The comparable is shrunk toward the market median in log space with a
+weight of 3 peers: ratios multiply, so the shrinkage averages logarithms and
+the raw median is never clamped before shrinking. The old arithmetic shrink
+clamped the raw median to [0.05, 0.80] first, which erased every difference
+between rich single-peer categories: Chain (3.03x), Collateral Management
+(12.16x), Decentralized AI (2.06x), NFT Marketplace (2.00x), Options
+(1.51x), Prediction Market (400.20x) and Risk Curators (2.97x) all priced at
+one identical 0.3845x, 40 board rows on a single number. In log space they
+price at 0.4607x, 0.6523x, 0.4185x, 0.4155x, 0.3875x, the 0.80 cap and
+0.4587x: each from its own peer, still pulled most of the way to the market
+by the 3-peer weight, and still capped. The same clamp erased the cheap end
+too: a category whose peers trade at 0.002x was lifted to 0.1676x by the
+floor before shrinking, so Staking Pool (SSV at 0.00x on $10.2B of TVL)
+priced as if it were a mid-market category; in log space it prices at the
+0.05 floor. A single peer still never sets its own price: Risk Curators'
+2.97x peer pulls the multiple to 0.4587x, not to 2.97x, and an extreme peer
+still lands at the cap, which is the model's bound. On this snapshot the
 Risk Curators median comes from a single live peer (Api3, at 2.98x mcap/TVL),
 so without shrinkage all 34 Risk Curator rows would price at the 0.80 cap;
-shrunk, they price at 0.3845x. The multiple is rounded to four decimals before
+shrunk in log space, they price at 0.4587x. The multiple is rounded to four decimals before
 it is used, so the dashboard's recompute of a row matches board.json exactly.
 Age is days since first listing, the record of how long a protocol has run
 with no token. `quality` is 0.97 when seven-day growth is unreported and 1.00
