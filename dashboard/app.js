@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-3). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-4). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -155,7 +155,7 @@
     return el('section', { class: 'lede' },
       el('div', null,
         el('h1', { text: DATA.watchlist_size + ' watchlist protocols, ranked by implied value' }),
-        el('p', { text: 'The watchlist is the floor: every protocol with at least $' + Math.round(DATA.floor_usd / 1e6) + 'M of TVL that records no token. The early radar adds all ' + DATA.early_size + ' rankable pre-token protocols below that floor, so the board holds ' + DATA.board_size + ' rows. Implied value is a model built from the snapshot, not a promise and not a prediction of a launch.' })
+        el('p', { text: 'The watchlist is the floor: every protocol with at least $' + Math.round(DATA.floor_usd / 1e6) + 'M of TVL that records no token. The early radar adds all ' + DATA.early_size + ' rankable pre-token protocols the watchlist leaves out, whatever their size, so the board holds ' + DATA.board_size + ' rows. Implied value is a model built from the snapshot, not a promise and not a prediction of a launch.' })
       ),
       el('div', { class: 'facts' },
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size }), el('small', { text: 'every watchlist slug is on the board' })),
@@ -310,11 +310,14 @@
     var m = DATA.model;
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time.' }),
+      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the whole market median with a weight of ' + m.shrink_peers + ' peers: a category with one live peer never sets its own price, and a category with no live peer uses the market median outright.' }),
       el('div', { class: 'formula' },
-        'implied = round( tvl_usd x categoryMultiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'
+        'multiple = (peers x categoryMedian + ' + m.shrink_peers + ' x marketMedian) / (peers + ' + m.shrink_peers + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
       ),
-      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, bridged and exchange products are left out of the ranking: they are a token that already trades, in another wrapper. "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
+      el('div', { class: 'formula' },
+        'implied = round( tvl_usd x multiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'
+      ),
+      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the ranking: they are a token that already trades, in another wrapper. "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
     );
   }
 
@@ -322,18 +325,22 @@
     var entries = Object.keys(DATA.multiples).sort().map(function (k) { return [k, DATA.multiples[k]]; });
     var tbody = el('tbody');
     entries.forEach(function (e) {
+      var peers = DATA.peers ? (DATA.peers[e[0]] || 0) : 0;
+      var raw = DATA.raw_multiples ? DATA.raw_multiples[e[0]] : null;
       tbody.appendChild(el('tr', null,
         el('td', null, el('b', { text: e[0] })),
         el('td', { class: 'num', text: e[1].toFixed(2) + 'x' }),
-        el('td', { class: 'num', text: 'median live mcap / TVL in this category' })
+        el('td', { class: 'num', text: String(peers) }),
+        el('td', { class: 'num', text: raw === null || raw === undefined ? 'n/a' : raw.toFixed(2) + 'x' }),
+        el('td', { class: 'num', text: peers === 0 ? 'no live peer: market median' : peers < 3 ? 'thin evidence: shrunk toward the market' : 'median live mcap / TVL in this category' })
       ));
     });
     return el('section', { class: 'panel peers' },
       el('h2', { text: 'Category comparables' }),
-      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by category. The whole market median is ' + DATA.market_multiple.toFixed(2) + 'x; a category with no live peer uses it.' }),
+      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by category. The whole market median is ' + DATA.market_multiple.toFixed(2) + 'x; a category with fewer than three live peers is shrunk toward it, so one peer never sets a price on its own.' }),
       el('div', { class: 'table-wrap' },
         el('table', null,
-          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Multiple' }), el('th', { scope: 'col', text: 'How it is read' }))),
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Multiple used' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Raw median' }), el('th', { scope: 'col', text: 'How it is read' }))),
           tbody
         )
       )
@@ -350,7 +357,7 @@
     writeHash();
     dialog.textContent = '';
     var recomputed = impliedOf(row, DATA.model);
-    var peers = DATA.live.filter(function (l) { return l.category === row.category; }).slice(0, 3);
+    var peers = (DATA.peer_samples && DATA.peer_samples[row.category || 'Other']) || DATA.live.filter(function (l) { return l.category === row.category; }).slice(0, 3);
     dialog.appendChild(el('div', { class: 'detail-head' },
       el('div', null,
         el('span', { class: 'rank', text: 'Rank ' + row.rank + ' of ' + DATA.board_size + (row.watchlist ? '  -  watchlist' : '  -  early radar') }),
@@ -366,7 +373,7 @@
         el('div', null, el('span', { text: 'TVL' }), el('b', { class: 'num', text: fmtUsd(row.tvl_usd) })),
         el('div', null, el('span', { text: 'Seven-day growth' }), el('b', { class: 'num', text: fmtPct(row.change_7d) })),
         el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: fmtAge(row.age_days) })),
-        el('div', null, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(2) + 'x (' + (row.comparable_peers === 1 ? '1 live peer' : row.comparable_peers + ' live peers') + ')' })),
+        el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(2) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(2) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(2) + 'x market median' : row.comparable_peers + ' live peers') + ')' })),
         el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) })),
         el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) })),
         el('div', null, el('span', { text: 'Breadth multiplier' }), el('b', { class: 'num', text: String(row.breadth_multiplier) })),

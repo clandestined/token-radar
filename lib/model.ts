@@ -1,21 +1,28 @@
-// Token Radar's model (radar-3): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-4): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
-// ceiling) plus every other rankable pre-token protocol below the floor: 178
-// rows on this snapshot (40 watchlist, 138 early). A protocol is rankable
-// when it records no token at all (no market cap, no CoinGecko id, no
-// symbol); live-token protocols are kept apart and shown with their market's
-// own values, never mixed into the ranking. Wrapped, staked, bridged and
-// exchange products are left out of the ranking for the same reason the
-// watchlist leaves them out: they are a token that already trades, in
-// another wrapper.
+// ceiling) plus every other rankable pre-token protocol the watchlist leaves
+// out, whatever its size: 195 rows on this snapshot (40 watchlist, 155
+// early). A protocol is rankable when it records no token at all (no market
+// cap, no CoinGecko id, no symbol); live-token protocols are kept apart and
+// shown with their market's own values, never mixed into the ranking.
+// Wrapped, staked, restaked, bridged and exchange products are left out of
+// the ranking for the same reason the watchlist leaves them out: they are a
+// token that already trades, in another wrapper. The floor is the watchlist's
+// floor, not a rankability ceiling: a $2.8B protocol the list leaves out
+// (Sentora Curator) is no worse a subject than a $49M one it names.
 //
 // Implied value follows only from the snapshot's own figures, through one
 // function applied to every row. No protocol name is ever special-cased.
 //
 //   comparable  = median(mcap_usd / tvl_usd) over the live-token protocols
-//                 in the same category, clamped to [0.05, 0.80]; categories
-//                 with no live peer use the whole market's median.
+//                 in the same category, clamped to [0.05, 0.80], then shrunk
+//                 toward the whole market's median with a weight of 3 peers:
+//                 (peers x categoryMedian + 3 x marketMedian) / (peers + 3).
+//                 A category with one live peer never sets its own price: a
+//                 single peer's ratio, however extreme, is pulled most of the
+//                 way to the market. Categories with no live peer use the
+//                 whole market's median outright.
 //   base        = tvl_usd x comparable
 //   growthMult  = 1 + clamp(change_7d, -40, 80) / 100 x 0.6
 //                 (change_7d unreported: treated as flat, see quality below)
@@ -75,6 +82,7 @@ export interface ModelConstants {
   unknown_age_days: number;
   multiple_floor: number;
   multiple_cap: number;
+  shrink_peers: number;
   breadth_step: number;
   breadth_max_chains: number;
   unknown_growth_discount: number;
@@ -90,13 +98,14 @@ export const MODEL: ModelConstants = {
   unknown_age_days: 365,
   multiple_floor: 0.05,
   multiple_cap: 0.8,
+  shrink_peers: 3,
   breadth_step: 0.02,
   breadth_max_chains: 4,
   unknown_growth_discount: 0.97,
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-3';
+export const MODEL_VERSION = 'radar-4';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -186,9 +195,12 @@ export interface RadarData {
   total_implied_usd: number;
   median_implied_usd: number;
   multiples: Record<string, number>;
+  peers: Record<string, number>;
+  raw_multiples: Record<string, number>;
   market_multiple: number;
   rows: RadarRow[];
   live: LiveRow[];
+  peer_samples: Record<string, LiveRow[]>;
 }
 
 /** Why the snapshot is not one this model can score. */
@@ -230,11 +242,15 @@ export function isPreToken(p: SnapshotProtocol): boolean {
 
 /**
  * The category comparables: for each category, the median market-cap-to-TVL
- * ratio of the live-token protocols in it, clamped to the model's band.
- * Categories with no live peer fall back to the whole market's median. The
- * map is computed from this snapshot alone, at run time, never hard-coded.
+ * ratio of the live-token protocols in it, clamped to the model's band, then
+ * shrunk toward the whole market's median with a weight of `shrink_peers`
+ * peers. A category with one live peer (Risk Curators: Api3 alone, at 2.98x)
+ * never sets its own price: its shrunk multiple sits most of the way to the
+ * market instead of at the 0.80 cap. Categories with no live peer use the
+ * whole market's median outright. The map is computed from this snapshot
+ * alone, at run time, never hard-coded.
  */
-export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { byCategory: Map<string, { multiple: number; peers: number }>; market: number } {
+export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { byCategory: Map<string, { multiple: number; raw: number; peers: number }>; market: number } {
   const byCategory = new Map<string, number[]>();
   const all: number[] = [];
   for (const p of snapshot.protocols) {
@@ -248,11 +264,20 @@ export function categoryMultiples(snapshot: Snapshot, model: ModelConstants): { 
     byCategory.set(key, list);
   }
   const marketRaw = median(all) ?? 0.2;
-  const market = Math.min(model.multiple_cap, Math.max(model.multiple_floor, marketRaw));
-  const out = new Map<string, { multiple: number; peers: number }>();
+  // Rounded like every multiple the board states, for the same reason: a
+  // no-peer category is priced at this market median, and the page must
+  // recompute it from the number the board carries.
+  const market = round4(Math.min(model.multiple_cap, Math.max(model.multiple_floor, marketRaw)));
+  const out = new Map<string, { multiple: number; raw: number; peers: number }>();
   for (const [key, list] of byCategory) {
-    const m = median(list) ?? marketRaw;
-    out.set(key, { multiple: Math.min(model.multiple_cap, Math.max(model.multiple_floor, m)), peers: list.length });
+    const raw = Math.min(model.multiple_cap, Math.max(model.multiple_floor, median(list) ?? marketRaw));
+    const shrunk = (list.length * raw + model.shrink_peers * market) / (list.length + model.shrink_peers);
+    // Rounded to four decimals BEFORE use: the dashboard recomputes each row
+    // from the multiple board.json carries, so the multiple it uses must be
+    // the multiple the board states, not a longer decimal behind it. An
+    // unrounded multiple would make the page's recompute differ from the
+    // board by a few dollars on most rows.
+    out.set(key, { multiple: round4(Math.min(model.multiple_cap, Math.max(model.multiple_floor, shrunk))), raw: round4(raw), peers: list.length });
   }
   return { byCategory: out, market };
 }
@@ -282,8 +307,8 @@ export function impliedValue(
 /** DefiLlama's version-marker rule: a name ending in a release is a pool of another protocol. */
 const VERSIONED = /\s(V\d+(\.\d+)?|v\d+(\.\d+)?|\d+\.\d+)$/;
 
-/** Whole words that mark a wrapped or staked product of a token that already trades. */
-const WRAPPED_WORD = /\b(wrapped|staked|staking)\b/i;
+/** Whole words that mark a wrapped, staked or restaked product of a token that already trades. */
+const WRAPPED_WORD = /\b(wrapped|staked|staking|restaked|restaking)\b/i;
 
 /** Exchange names whose products are the exchange's own, not a pre-token protocol. */
 const EXCHANGE_PREFIX = /^(binance|coinbase|bybit|kraken|bitget|okx|bitfinex|gemini)\b/i;
@@ -291,22 +316,27 @@ const EXCHANGE_PREFIX = /^(binance|coinbase|bybit|kraken|bitget|okx|bitfinex|gem
 /** Categories that are a bridge, a staking wrapper or an exchange, never a launch of their own. */
 const EXCLUDED_CATEGORIES = new Set(['Bridge', 'Canonical Bridge', 'Liquid Staking', 'Liquid Restaking', 'Restaked BTC', 'CEX']);
 
-/** Whether a protocol is one the board may rank: pre-token, and not a wrapped, staked, bridged, versioned or exchange product. */
+/** Category words that mark a bridge or a wrapper whatever the exact label: a "Cross Chain Bridge" is a bridge and a "Stablecoin Wrapper" is a wrapper. */
+const EXCLUDED_CATEGORY_WORDS = ['bridge', 'wrapper'];
+
+/** Whether a protocol is one the board may rank: pre-token, and not a wrapped, staked, restaked, bridged, versioned or exchange product. */
 export function isRankable(p: SnapshotProtocol): boolean {
   if (!isPreToken(p)) return false;
   if (p.category !== null && EXCLUDED_CATEGORIES.has(p.category)) return false;
+  if (p.category !== null && EXCLUDED_CATEGORY_WORDS.some((w) => p.category!.toLowerCase().includes(w))) return false;
   if (VERSIONED.test(p.name)) return false;
   if (WRAPPED_WORD.test(p.name)) return false;
   if (EXCHANGE_PREFIX.test(p.name)) return false;
   return true;
 }
 
+/** A number rounded to four decimals, as the board states its multiples. */
+const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
+
 /** The snapshot's protocol by slug. */
 function bySlug(protocols: SnapshotProtocol[]): Map<string, SnapshotProtocol> {
   return new Map(protocols.map((p) => [p.slug, p]));
 }
-
-const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
 /** The protocols the board ranks, strongest first, with ranks 1..n. */
 export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): BoardRow[] {
@@ -318,10 +348,12 @@ export function buildBoard(snapshot: Snapshot, model: ModelConstants = MODEL): B
     const p = index.get(slug);
     if (p !== undefined) chosen.set(slug, p);
   }
-  // The early radar: every rankable pre-token protocol below the floor, not
-  // just the biggest few. A chosen protocol stays chosen.
+  // The early radar: every rankable pre-token protocol the watchlist leaves
+  // out, whatever its size. The floor is the watchlist's floor, never a
+  // rankability ceiling: a protocol above it is no worse a subject than one
+  // below it. A chosen protocol stays chosen.
   for (const p of snapshot.protocols) {
-    if (!chosen.has(p.slug) && isRankable(p) && p.tvl_usd < snapshot.floor_usd) chosen.set(p.slug, p);
+    if (!chosen.has(p.slug) && isRankable(p)) chosen.set(p.slug, p);
   }
 
   const watchlist = new Set(snapshot.watchlist);
@@ -407,13 +439,43 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   return `Deposit $${capital} of USDC into ${name} on ${chain} and use its main feature once.`;
 }
 
+/** The weekly action that keeps a farm alive, by category: the same deposit every week looks like one burst, a category-shaped action every week looks like use. */
+function weeklyActionFor(p: SnapshotProtocol): string {
+  const c = (p.category ?? '').toLowerCase();
+  const name = p.name;
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Repay a small part of the borrow on ${name} and borrow it back, so the position moves every week instead of sitting still.`;
+  if (c.includes('dex') || c.includes('leveraged farm')) return `Swap a small amount through ${name}'s main pool each week, alternating the direction, so the wallet trades as well as holds.`;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Claim any rewards the ${name} vault shows each week and restake them, or add a small top-up to the vault.`;
+  if (c.includes('perpetual') || c.includes('derivative')) return `Open and close one small hedged trade on ${name} each week, keeping the size tiny and the margin untouched.`;
+  if (c.includes('prediction')) return `Settle one small market position on ${name} each week and open the next one only after the first closes.`;
+  if (c.includes('stable')) return `Move a small amount in and out of the stable asset through ${name} each week, never the whole balance at once.`;
+  if (c.includes('rwa')) return `Check the yield ${name}'s asset accrued that week and top the position up by a small amount when it pays out.`;
+  if (c.includes('insurance')) return `Check the cover from ${name} is still active each week and renew it before it lapses rather than after.`;
+  if (c.includes('basis') || c.includes('options')) return `Rebalance the ${name} strategy position by a small amount each week instead of letting it drift untouched.`;
+  if (c.includes('liquid')) return `Check the receipt token balance for ${name} each week and add a small deposit when the balance is flat.`;
+  return `Use ${name}'s main feature once each week, such as a deposit, a borrow, a swap or a vote, and never leave the wallet untouched for a whole month.`;
+}
+
+/** What to write in the farm log each week, by category: the number that proves the position is real. */
+function trackFor(p: SnapshotProtocol): string {
+  const c = (p.category ?? '').toLowerCase();
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the borrow amount, the collateral ratio and the health factor.`;
+  if (c.includes('dex') || c.includes('leveraged farm')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the pool share and the fees the position earned.`;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the vault share balance and any points balance the protocol shows.`;
+  if (c.includes('perpetual') || c.includes('derivative')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the margin balance and the outcome of each trade.`;
+  if (c.includes('prediction')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note each settled position and its outcome.`;
+  return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the position size and any points balance the protocol shows.`;
+}
+
 /**
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
  * and age), never from a hand-written list of names. Step 3 keeps one wallet
  * per protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
- * protocol alone.
+ * protocol alone. Steps 3 and 5 are shaped by the category: the weekly
+ * action and the number worth logging differ between a lender, a pool and a
+ * vault, so no two categories farm the same way.
  */
 export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const chain = chainOf(p);
@@ -433,7 +495,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: '15 minutes to set up',
     },
     {
-      text: `Use this wallet for ${p.name} alone, and make one qualifying action each week, such as a deposit, a borrow, a swap or a vote, and never leave the wallet untouched for a whole month.`,
+      text: `Use this wallet for ${p.name} alone, and ${weeklyActionFor(p).charAt(0).toLowerCase()}${weeklyActionFor(p).slice(1)}`,
       cost: 'about $2 of gas a week',
       time: '10 minutes a week',
     },
@@ -443,7 +505,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: `${hold} days`,
     },
     {
-      text: `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note any points balance the protocol shows.`,
+      text: trackFor(p),
       cost: 'nothing but the log',
       time: '5 minutes a week',
     },
@@ -460,22 +522,52 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   ];
 }
 
+/** One live-token protocol in the dashboard's compact form. */
+function toLiveRow(p: SnapshotProtocol): LiveRow {
+  return {
+    slug: p.slug,
+    name: p.name,
+    category: p.category,
+    chains: p.chains,
+    tvl_usd: p.tvl_usd,
+    mcap_usd: p.mcap_usd,
+    change_7d: p.change_7d,
+    multiple: p.mcap_usd !== null && p.tvl_usd > 0 ? Math.round((p.mcap_usd / p.tvl_usd) * 1000) / 1000 : null,
+  };
+}
+
 /** The live-token protocols, by market cap, for the dashboard's Live token view. */
 export function liveRows(snapshot: Snapshot): LiveRow[] {
   return snapshot.protocols
     .filter((p) => !isPreToken(p) && p.category !== 'CEX')
     .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
     .slice(0, LIVE_ROWS)
-    .map((p) => ({
-      slug: p.slug,
-      name: p.name,
-      category: p.category,
-      chains: p.chains,
-      tvl_usd: p.tvl_usd,
-      mcap_usd: p.mcap_usd,
-      change_7d: p.change_7d,
-      multiple: p.mcap_usd !== null && p.tvl_usd > 0 ? Math.round((p.mcap_usd / p.tvl_usd) * 1000) / 1000 : null,
-    }));
+    .map(toLiveRow);
+}
+
+/**
+ * The live comparables each detail view names, by category: the three
+ * biggest live-token protocols in the category, by market cap. The Live
+ * token view only carries the top 24 live protocols by market cap, so a
+ * category's peers (Api3 is the Risk Curators peer, at $35M) would never
+ * appear in a detail view drawn from that list alone.
+ */
+export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
+  const byCategory = new Map<string, LiveRow[]>();
+  const rows = snapshot.protocols
+    // The same population the comparables are priced from: a live token with
+    // a market cap the snapshot records. A protocol that records a token but
+    // no market cap has no ratio to show, so it never appears as a peer.
+    .filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.tvl_usd > 0)
+    .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
+    .map(toLiveRow);
+  for (const r of rows) {
+    const key = r.category ?? 'Other';
+    const list = byCategory.get(key) ?? [];
+    if (list.length < 3) list.push(r);
+    byCategory.set(key, list);
+  }
+  return Object.fromEntries([...byCategory.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)));
 }
 
 /** A board row's compact form for data.js, with the farm plan verbatim. */
@@ -512,8 +604,23 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
   const sortedImplied = board.map((r) => r.implied_value_usd).sort((a, b) => a - b);
   const medianImplied = median(sortedImplied) ?? 0;
   const multiplesObj: Record<string, number> = {};
+  const peersObj: Record<string, number> = {};
+  const rawObj: Record<string, number> = {};
   for (const [key, value] of [...multiples.byCategory.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
     multiplesObj[key] = value.multiple;
+    peersObj[key] = value.peers;
+    rawObj[key] = value.raw;
+  }
+  // Categories on the board with no live peer are priced at the market
+  // median: list them too, so the comparables table names every multiple
+  // the board uses, not only the ones with peers behind them.
+  for (const row of board) {
+    const key = row.category ?? 'Other';
+    if (!(key in multiplesObj)) {
+      multiplesObj[key] = multiples.market;
+      peersObj[key] = 0;
+      rawObj[key] = multiples.market;
+    }
   }
   const radar: RadarData = {
     as_of: snapshot.as_of,
@@ -528,9 +635,12 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     total_implied_usd: total,
     median_implied_usd: medianImplied,
     multiples: multiplesObj,
+    peers: peersObj,
+    raw_multiples: rawObj,
     market_multiple: multiples.market,
     rows: board.map(radarRow),
     live,
+    peer_samples: liveSamples(snapshot),
   };
   return { board, radar };
 }
