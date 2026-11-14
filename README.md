@@ -6,6 +6,52 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-20)
+
+Radar-20 keeps radar-19's formula and every implied value, and fixes the
+farm plans the category shapes got wrong by naming the wrong asset — the
+fifth miscategorization round, and the one round 16 deliberately left
+open. First, the CDP shape: it told all eight non-USDD CDP rows to supply
+USDC as collateral, but a CDP takes the collateral its own vaults accept,
+and USDC is the thing you borrow, not the thing you deposit — so seven of
+the eight were wrong, each now corrected in PLAN_CORRECTIONS against the
+protocol's own record: Felix CDP takes HYPE (WHYPE, kHYPE, wstHYPE) and
+UBTC to mint feUSD; Bucket CDP takes SUI, BTC, ETH and liquid staking
+tokens to mint BUCK; BIMA CDP takes BTC and Bitcoin LSTs to mint USBD at
+150%; Kava Mint takes BTC, BNB, ATOM, KAVA and XRP to mint USDX; Monolith
+Market takes ETH or wBTC to borrow its Coin stablecoin; BTCFi CDP takes
+Bitcoin as its exclusive collateral to mint BtcUSD; and Swan DAO's swanUSD
+is minted against wstETH in a single-collateral Monolith lender (the USDS
+in its peg module is a stability reserve, not borrower collateral). The
+eighth, STRATO CDP, stays on the generic wording: its own litepaper lists
+USDC as an accepted CDP collateral at 90% LTV, so the generic asset is
+genuinely accepted there. Round 17's settlement of Monolith was wrong on
+this point — its category was right, but the shape's named asset was not —
+and it is corrected here. Second, the same wrong-asset audit across every
+other shape that names a specific asset found six more: Avant avETH mints
+against ETH or WETH, never USDC (USDC backs the sibling avUSD); Origami
+Finance's leveraged vaults take the yield-bearing asset itself, USDe for
+the flagship lovUSDe vault, never a USDC deposit; Boros margin is posted
+in the market's own collateral asset, ETH for an ETH funding-rate market,
+never USDC; Granite takes sBTC as collateral and lends USDCx, so the
+stablecoin is the borrowed asset, never the collateral; Solv Strategies is
+Bitcoin-native, deposits are BTC minted into SolvBTC, never USDC; and
+Exponent Yield Exchange is a yield exchange, not a vault — it splits a
+yield-bearing asset into a principal token and a yield token — so its plan
+now swaps JitoSOL for its principal token and holds it to maturity, with
+the weekly action, the number worth logging, the claim and the exit
+corrected to match. The audit also cleared the shapes it checked and left
+alone: 3F's stablecoin-depositor side is real (its vaults deliver yield to
+stablecoin depositors), BounceBit Prime takes fiat or stablecoin deposits
+including USDC, the lending rows supply USDC to multi-asset markets as
+standard, perp margin is USDC across the board, and the Exponent strategy
+vaults and risk tranches were left alone because no single deposit asset
+could be verified for them — a correction there would repeat the
+speculative failure mode this round guards against. The board is
+unchanged: same 195 rows, same ranks, same implied values; only farm
+plans move, on 13 rows, and the screenshots are retaken for the radar-20
+label.
+
 ## The model (radar-19)
 
 Radar-19 keeps radar-18's formula and every implied value, and fixes the
@@ -368,7 +414,7 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). Eight plans are corrected against the
+farm runs; B2 is gas only on the Hub). Twenty-one plans are corrected against the
 snapshot's own record, in one table (see Snapshot corrections below): Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
 plan stakes BTC for B2 rewards instead of bridging onto a network; Firelight
@@ -382,7 +428,7 @@ DeFi Saver is a management layer that takes no deposits, so its plan opens a
 position through it and automates it; Bittensor dTAO is a staking system, not
 an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points
 program, so its plan checks the rewards page that pays in pUSD instead of a
-claim page. Eight plans in all. The weekly action, the number worth
+claim page. Twenty-one plans in all. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
@@ -400,7 +446,7 @@ them at (flat, and 365 days), never as the oldest or the fastest.
 
 ## Snapshot corrections
 
-Eight farm plans follow the protocol's own documentation instead of the
+Twenty-one farm plans follow the protocol's own documentation instead of the
 snapshot's category, because the snapshot's record mislabels the protocol.
 They live in one table, PLAN_CORRECTIONS in lib/model.ts, keyed by slug,
 each entry stating why the record is wrong and giving only the steps the
@@ -452,6 +498,75 @@ and the scoring never names a protocol.
   no points program and has no token claim page; its rewards are
   Liquidity Rewards and Holding Rewards, paid in pUSD. Only the claim
   step is corrected (Polymarket docs; TraderComps, Oct 2026).
+- Felix CDP (rank 124): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but Felix's CDP
+  branches take WHYPE, kHYPE, wstHYPE and UBTC to mint feUSD, never
+  USDC, so its plan deposits HYPE (wrapped as WHYPE) into a trove to
+  mint feUSD.
+- Bucket CDP (rank 138): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but Bucket's CDP
+  takes SUI, BTC, ETH and liquid staking tokens to mint BUCK, never
+  USDC, so its plan deposits SUI to mint BUCK.
+- BIMA CDP (rank 160): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but BIMA's vaults
+  take BTC and Bitcoin LSTs to mint USBD at a 150% minimum ratio, never
+  USDC, so its plan deposits BTC to mint USBD (BIMA mainnet announcement,
+  Apr 2025).
+- Kava Mint (rank 165): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but Kava Mint
+  takes BTC, BNB, ATOM, KAVA and XRP as collateral to mint USDX, never
+  USDC, so its plan deposits BTC to mint USDX.
+- Monolith Market (rank 166): DefiLlama lists it under CDP, and the CDP
+  shape would tell its farmer to supply USDC as collateral — but
+  Monolith's lending markets take ETH or wBTC as collateral to borrow its
+  Coin stablecoin, never USDC, so its plan deposits ETH to borrow Coin
+  (ChainSecurity audit, Apr 2026). Round 17 settled this row's category
+  as right and the shape as fitting; the category was right, the shape's
+  named asset was not.
+- BTCFi CDP (rank 177): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but BTCFi takes
+  Bitcoin as its exclusive collateral to mint BtcUSD, never USDC, so its
+  plan deposits BTC to mint BtcUSD.
+- Swan DAO (rank 189): DefiLlama lists it under CDP, and the CDP shape
+  would tell its farmer to supply USDC as collateral — but Swan DAO's
+  swanUSD is minted against wstETH in a single-collateral Monolith
+  lender, never USDC (the USDS in its peg module is a stability reserve,
+  not borrower collateral), so its plan deposits wstETH to mint swanUSD.
+- Avant avETH (rank 173): DefiLlama lists it under Onchain Capital
+  Allocator, and the yield shape would tell its farmer to deposit USDC
+  into its vault — but avETH is backed 1:1 by ETH and mints against ETH
+  or WETH, never USDC (USDC backs the sibling avUSD), so its plan
+  deposits ETH to mint avETH.
+- Origami Finance (rank 91): DefiLlama lists it under Leveraged Farming,
+  and the leveraged-farming shape would tell its farmer to deposit USDC
+  into a leveraged vault — but Origami's vaults take the yield-bearing
+  asset itself (USDe, sUSDe, OHM, iBERA), never a USDC deposit, so its
+  plan deposits USDe into a leveraged vault and keeps the receipt token.
+- Boros (rank 175): DefiLlama lists it under Interest Rate Derivatives,
+  and the interest-rate shape would tell its farmer to deposit USDC as
+  margin — but Boros margin is posted in the market's own collateral
+  asset (ETH for an ETH funding-rate market), never USDC, so its plan
+  deposits ETH as margin (Pendle docs: Boros).
+- Granite (rank 193): DefiLlama lists it under Lending, and the lending
+  shape would tell its farmer to supply USDC as collateral and borrow
+  against it — but Granite's single market takes sBTC as collateral and
+  lends USDCx, so the stablecoin is the borrowed asset, never the
+  collateral, and its plan deposits sBTC to borrow USDCx.
+- Solv Strategies (rank 110): DefiLlama lists it under Onchain Capital
+  Allocator, and the yield shape would tell its farmer to deposit USDC
+  into its vault — but Solv's strategies are Bitcoin-native, deposits
+  are BTC minted into SolvBTC, never USDC, so its plan deposits BTC to
+  receive SolvBTC.
+- Exponent Yield Exchange (rank 72): DefiLlama lists it under Yield, and
+  the yield shape would tell its farmer to deposit USDC into a vault —
+  but Exponent's Yield Exchange is an exchange, not a vault: it splits a
+  yield-bearing asset into a principal token and a yield token, so its
+  plan swaps JitoSOL for its fixed-rate principal token and holds it to
+  maturity, with the weekly action, the number worth logging, the claim
+  and the exit corrected to match. STRATO CDP (rank 161) is the one CDP
+  row left on the generic wording: its own litepaper lists USDC as an
+  accepted CDP collateral at 90% LTV, so the generic asset is genuinely
+  accepted there.
 
 ## Run it
 

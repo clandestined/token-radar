@@ -1,4 +1,4 @@
-// Token Radar's model (radar-19): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-20): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-19';
+export const MODEL_VERSION = 'radar-20';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -512,6 +512,14 @@ function actionFor(p: SnapshotProtocol, capital: number, chain: string): string 
   if (c.includes('collateral market')) return `Deposit $${capital} of wstETH into a ${name} vault on ${chain}, delegate the collateral to an operator securing a network, and keep the vault shares in your wallet.`;
   if (c.includes('interest rate')) return `Deposit $${capital} of USDC as margin on ${name} on ${chain} and open one small long or short position on a funding-rate market, then hold it to maturity.`;
   if (c.includes('uncollateralized')) return `Deposit $${capital} of USDC into the ${name} credit market on ${chain} to fund uncollateralized loans and keep the yield-bearing receipt token in your wallet.`;
+  // A CDP takes the collateral its own vaults accept, never a stablecoin
+  // by default: seven of the board's CDP rows are corrected in
+  // PLAN_CORRECTIONS below (Felix takes HYPE, Bucket SUI, BIMA and BTCFi
+  // BTC, Kava Mint BTC, Monolith ETH, Swan DAO wstETH), and the eighth,
+  // STRATO, stays on this wording because its own litepaper lists USDC as
+  // an accepted CDP collateral at 90% LTV — the one CDP row where the
+  // generic asset is genuinely accepted. A lender takes USDC the same way:
+  // supplying a stablecoin to a lending market is the standard action.
   if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Supply $${capital} of USDC to ${name} on ${chain} as collateral and borrow a small amount against it, then repay the borrow.`;
   if (c === 'dexs') return `Provide $${capital} of liquidity to ${name}'s main pool on ${chain} in a balanced pair and keep the position open.`;
   // A leveraged vault is not a pool: 3F loops tokenized RWAs through
@@ -933,6 +941,138 @@ const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
   'polymarket-international': {
     why: 'The prediction shape would send its farmer to a "market rewards page" to claim — but Polymarket runs no points program and has no token claim page; its rewards are Liquidity Rewards and Holding Rewards, paid in pUSD.',
     claim: (p) => `Check ${p.name}'s own rewards page for the liquidity rewards and holding yield it pays in pUSD — there is no points program and no token claim page; if a token is ever announced, claim only from the link the official site publishes, never from a link in a message.`,
+  },
+  // Felix CDP is a Liquity V2 fork on Hyperliquid: its CDP branches take
+  // WHYPE, kHYPE, wstHYPE and UBTC as collateral to mint feUSD — 93% of
+  // its collateral is HYPE-family — never USDC. The CDP shape would tell
+  // its farmer to supply USDC as collateral, an asset no Felix branch
+  // takes. (Felix risk report, Nov 2026: four branches, WHYPE/kHYPE/
+  // wstHYPE/UBTC; coinlaunch: "deposit HYPE or UBTC and mint feUSD".)
+  'felix-cdp': {
+    why: 'DefiLlama lists Felix CDP under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but Felix\u2019s CDP takes HYPE (WHYPE, kHYPE, wstHYPE) and UBTC to mint feUSD, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of HYPE (wrapped as WHYPE) into a ${p.name} trove on ${chain} to mint feUSD and keep the feUSD in your wallet.`,
+  },
+  // Bucket CDP is Sui's CDP stablecoin: its vaults take SUI, BTC, ETH and
+  // liquid staking tokens as collateral to mint BUCK, never USDC. The CDP
+  // shape would tell its farmer to supply USDC as collateral, an asset no
+  // Bucket vault takes. (Bucket docs via Crypto Daily / Backpack.)
+  'bucket-cdp': {
+    why: 'DefiLlama lists Bucket CDP under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but Bucket\u2019s CDP takes SUI, BTC, ETH and liquid staking tokens to mint BUCK, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of SUI into a ${p.name} vault on ${chain} to mint BUCK and keep the BUCK in your wallet.`,
+  },
+  // BIMA CDP mints USBD, a stablecoin over-collateralized by Bitcoin
+  // derivatives at a 150% minimum ratio: users deposit BTC directly or
+  // stake it for a Bitcoin LST and place that in a vault, never USDC.
+  // (BIMA mainnet announcement, Apr 2025.)
+  'bima-cdp': {
+    why: 'DefiLlama lists BIMA CDP under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but BIMA\u2019s vaults take BTC and Bitcoin LSTs to mint USBD, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of BTC into a ${p.name} vault on ${chain} to mint USBD and keep the USBD in your wallet.`,
+  },
+  // Kava Mint is Kava's CDP: its variable collateral is BTC, BNB, ATOM,
+  // KAVA and XRP, minted into USDX — USDC is not a collateral type. The
+  // CDP shape would tell its farmer to supply USDC as collateral, an
+  // asset Kava Mint does not take. (Kava Mint docs; Bitcoin Credit Stack.)
+  'kava-mint': {
+    why: 'DefiLlama lists Kava Mint under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but Kava Mint takes BTC, BNB, ATOM, KAVA and XRP as collateral to mint USDX, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of BTC into a ${p.name} vault on ${chain} to mint USDX and keep the USDX in your wallet.`,
+  },
+  // Monolith Market is Inverse Finance's permissionless factory for
+  // single-collateral stablecoins: each lending market takes one
+  // collateral type, ETH or wBTC, and lends its Coin stablecoin against
+  // it — USDC is only a peg-stability asset, never borrower collateral.
+  // Round 17 settled Monolith's category as right and the CDP shape as
+  // fitting; the category was right, the shape's named asset was not.
+  // (ChainSecurity audit of Monolith, Apr 2026.)
+  'monolith-market': {
+    why: 'DefiLlama lists Monolith Market under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but Monolith\u2019s lending markets take ETH or wBTC as collateral to borrow its Coin stablecoin, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of ETH into a ${p.name} lending market on ${chain} to borrow its Coin stablecoin against the collateral and keep the Coin in your wallet.`,
+  },
+  // BTCFi CDP mints BtcUSD, a stablecoin backed by Bitcoin as its
+  // exclusive collateral: users deposit BTC (or WBTC / BTCBA) and mint
+  // BtcUSD at 3.5% APY, never USDC. (DefiLlama stablecoin page for
+  // BtcUSD; Bifrost / Stacks announcements.)
+  'btcfi-cdp': {
+    why: 'DefiLlama lists BTCFi CDP under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but BTCFi takes Bitcoin as its exclusive collateral to mint BtcUSD, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of BTC into a ${p.name} vault on ${chain} to mint BtcUSD and keep the BtcUSD in your wallet.`,
+  },
+  // Swan DAO's swanUSD is a wstETH-backed stablecoin on a single-
+  // collateral Monolith lender: borrowers mint swanUSD against wstETH at
+  // up to 85% of collateral value. The USDS in its peg-stability module
+  // is a stability reserve, explicitly not borrower collateral — and
+  // neither is USDC. (Pharos swanUSD risk profile, Oct 2026; Inverse
+  // Finance forum: add sSwanUSD as collateral on FiRM.)
+  'swan-dao': {
+    why: 'DefiLlama lists Swan DAO under CDP, so the CDP shape would tell its farmer to supply USDC as collateral — but Swan DAO\u2019s swanUSD is minted against wstETH in a single-collateral Monolith lender, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of wstETH into a ${p.name} vault on ${chain} to mint swanUSD and keep the swanUSD in your wallet.`,
+  },
+  // Avant avETH is the Ether family of Avant Protocol: avETH is backed
+  // 1:1 by ETH and direct minting accepts ETH or WETH — USDC is the
+  // backing of the sibling avUSD family, not this one. The yield shape
+  // would tell its farmer to deposit USDC into the avETH vault, an asset
+  // it does not take. (Avant docs via avnat.trade; Bitrue: avETH backed
+  // 1:1 by ETH.)
+  'avant-aveth': {
+    why: 'DefiLlama lists Avant avETH under Onchain Capital Allocator, so the yield shape would tell its farmer to deposit USDC into its vault — but avETH is backed 1:1 by ETH and mints against ETH or WETH, never USDC (USDC backs the sibling avUSD).',
+    action: (p, capital, chain) => `Deposit $${capital} of ETH into ${p.name} on ${chain} to mint avETH and keep the avETH in your wallet.`,
+  },
+  // Origami Finance's leveraged vaults take the yield-bearing asset
+  // itself and loop it through lending markets: lovUSDe takes USDe,
+  // lovOlympus takes OHM, lovInfrared takes iBERA and other LSTs, and
+  // the flagship vaults are named for their asset. The leveraged-farming
+  // shape would tell its farmer to deposit USDC into a leveraged vault,
+  // which is not how any of the named vaults take a deposit.
+  // (Origami Finance docs; Lark Davis, May 2024.)
+  'origami-finance': {
+    why: 'DefiLlama lists Origami Finance under Leveraged Farming, so the leveraged-farming shape would tell its farmer to deposit USDC into a leveraged vault — but Origami\u2019s vaults take the yield-bearing asset itself (USDe, sUSDe, OHM, iBERA), never a USDC deposit.',
+    action: (p, capital, chain) => `Deposit $${capital} of USDe into an ${p.name} leveraged vault on ${chain} and keep the vault receipt token in your wallet.`,
+  },
+  // Boros is Pendle's rate-trading platform on margin: a position's
+  // margin is posted in the market's own collateral asset — ETH for an
+  // ETH funding-rate market, BTC for a BTC one — never USDC. The
+  // interest-rate shape would tell its farmer to deposit USDC as margin,
+  // an asset no Boros market takes as margin. (Pendle docs: Boros
+  // overview; the worked example posts 1.65 ETH of margin on a
+  // YU-ETHUSDC market.)
+  boros: {
+    why: 'DefiLlama lists Boros under Interest Rate Derivatives, so the interest-rate shape would tell its farmer to deposit USDC as margin — but Boros margin is posted in the market\u2019s own collateral asset (ETH for an ETH funding-rate market), never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of ETH as margin on ${p.name} on ${chain} and open one small long or short position on a funding-rate market, then hold it to maturity.`,
+  },
+  // Granite is a Bitcoin lending market on Stacks with a single market:
+  // borrowers post sBTC as collateral and borrow USDCx stablecoins
+  // against it at up to 50% LTV, while liquidity providers earn yield by
+  // depositing USDCx. The lending shape would tell its farmer to supply
+  // USDC "as collateral and borrow against it" — in Granite the
+  // stablecoin is the borrowed asset, never the collateral. (Granite /
+  // Borrow on Bitcoin.)
+  granite: {
+    why: 'DefiLlama lists Granite under Lending, so the lending shape would tell its farmer to supply USDC as collateral and borrow against it — but Granite\u2019s single market takes sBTC as collateral and lends USDCx; the stablecoin is the borrowed asset, never the collateral.',
+    action: (p, capital, chain) => `Deposit $${capital} of sBTC into ${p.name} on ${chain} as collateral and borrow a small amount of USDCx against it, then repay the borrow.`,
+  },
+  // Solv Strategies is Solv Protocol's Bitcoin-native yield vault: its
+  // flagship BTC+ vault takes SolvBTC — minted 1:1 by depositing BTC or
+  // wBTC — and allocates it across yield strategies. The yield shape
+  // would tell its farmer to deposit USDC into the vault, an asset Solv's
+  // strategies do not take. (Solv docs via Binance Square; BTCC: mint
+  // SolvBTC by depositing BTC or wBTC.)
+  'solv-strategies': {
+    why: 'DefiLlama lists Solv Strategies under Onchain Capital Allocator, so the yield shape would tell its farmer to deposit USDC into its vault — but Solv\u2019s strategies are Bitcoin-native: deposits are BTC, minted into SolvBTC, never USDC.',
+    action: (p, capital, chain) => `Deposit $${capital} of BTC into a ${p.name} vault on ${chain} to receive SolvBTC and hold it in your wallet.`,
+  },
+  // Exponent Yield Exchange is a yield exchange, not a vault: it splits a
+  // yield-bearing asset (JitoSOL, mSOL, ONyc) into a fixed-rate principal
+  // token (PT) and a yield token (YT) that trade to maturity. The yield
+  // shape would tell its farmer to deposit USDC into a vault and keep
+  // vault shares — there is no USDC vault to deposit into, and a PT is
+  // held to maturity, not restaked weekly. So the action, the weekly
+  // action, the number worth logging, the claim and the exit are all
+  // corrected here. (Exponent docs; CoinCodeCap review.)
+  'exponent-yield-exchange': {
+    why: 'DefiLlama lists Exponent Yield Exchange under Yield, so the yield shape would tell its farmer to deposit USDC into a vault — but Exponent\u2019s Yield Exchange is an exchange, not a vault: it splits a yield-bearing asset into a principal token and a yield token, and there is no USDC vault to deposit into.',
+    action: (p, capital, chain) => `Swap $${capital} of JitoSOL for its fixed-rate principal token (PT) on ${p.name} on ${chain} and hold the PT to maturity for the fixed yield.`,
+    weekly: (p) => `Check the PT's fixed rate and maturity date on ${p.name} each week and hold it — the rate is locked at purchase, so there is nothing to rebalance.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the PT balance, the fixed rate it locked in and the maturity date.`,
+    claim: (p) => `A PT redeems for the underlying asset at maturity, so there is no rewards page to claim from — check the redemption on the official ${p.name} page at maturity, and never pay to claim or follow a claim link in a message.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then hold the PT to maturity and redeem it for the underlying asset on ${p.name}, close the log and retire the wallet.`,
   },
 };
 
