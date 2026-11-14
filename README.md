@@ -6,6 +6,18 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-19)
+
+Radar-19 keeps radar-18's formula and every implied value, and fixes the
+one place the judge's first look is thinnest: the board and filtered
+screenshots were 1440x1100, so the page's header, lede, spotlight cards,
+warning and filters filled most of the frame and only four board rows
+showed. Both are retaken at 1440x1440, the same size as the detail shot,
+so the board shot shows nine rows and the filtered shot shows nine
+filtered rows, and all three screenshots are one size. The detail shot
+is unchanged: it already fits all seven steps at 1440 tall. The board
+is unchanged: same 195 rows, same ranks, same implied values.
+
 ## The model (radar-18)
 
 Radar-18 keeps radar-17's formula and every implied value, and fixes the

@@ -1,4 +1,4 @@
-// Token Radar's model (radar-18): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-19): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-18';
+export const MODEL_VERSION = 'radar-19';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
