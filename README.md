@@ -6,6 +6,51 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-24)
+
+Radar-24 keeps radar-23's formula and every implied value, and fixes the
+numbers the page itself showed wrong plus the why-sentences that
+misdescribed their rows. First, the live multiples double-rounded: the
+code stored each live-token multiple rounded to three decimals and the
+page displayed it at two, so the display rounded twice. Api3's true
+ratio is 2.9747x, a two-decimal multiple of 2.97x, but the stored 2.975
+showed 2.98x in the detail view and the Live view; Zama showed 1.64x
+for a true 1.63x. Rounding to four decimals first does not save it
+either: ACryptoS's ratio is 0.0150x, a true 0.02x at two decimals, but
+the stored 0.015 displays as 0.01x, because (0.015).toFixed(2) is
+"0.01" in JavaScript, and Usual USD0 showed 0.28x for a true 0.27x.
+The live multiple is now stored unrounded and the page's toFixed(2) is
+the only rounding; checked over all 128 live-token protocols with a
+market cap, it matches the correctly rounded two-decimal value on
+every one. The board's own multiples stay rounded to four decimals,
+because the page recomputes each row from the multiple board.json
+carries; a live multiple is only ever displayed and sorted, never
+recomputed from. The README's own "2.98x" for Api3 is corrected to
+2.97x with it. Second, the why-sentences: their bands read the numbers
+they describe now. A 5-10% weekly move is not flat, so 42 rows that
+read "flat seven-day growth" while moving 5-10% in a week now read
+"modest seven-day growth" or "modest seven-day decline", and only a
+move within 5% reads flat. Nine rows aged 300-364 days read "half a
+year running with no token" while nearly a year old, so they now read
+"nearly a year", and the boundaries are strict where the words are:
+exactly 730 days (Goose) is two years, not two-plus, and exactly 365
+days (Yuzu Money) is a year, not over one. And the mid-range band no
+longer sits at a fixed 0.2x: 18 rows at 0.2013-0.217x read "mid-range"
+while below the 0.2343x market median, next to rows at 0.1988x that
+read "below-market", so mid-range now starts at the market median
+itself. Third, the open item from round 20 is closed: the Native
+Credit Pool token-breakdown figure is verified against DefiLlama's API
+on 14 November 2026 (api.llama.fi/protocol/native-credit-pool,
+tokensInUsd). USDC is the largest asset supplied, $6.54M, of $19.05M
+total at 11:24 UTC; the day's 00:00 UTC entry reads $6.25M of $19.14M,
+so the $19.03M in the radar-22 text is the same day's total at round
+19's fetch, within intraday drift. The API's description confirms the
+pool itself: a unified, single-sided asset supply pool that enables
+market makers to borrow assets for trading. The board is unchanged:
+same 195 rows, same ranks, same implied values, board.json byte
+identical; only the live multiples in data.js, the why-sentences and
+prose move, and the screenshots are retaken for the radar-24 label.
+
 ## The model (radar-23)
 
 Radar-23 keeps radar-22's formula and every implied value, and fixes
@@ -486,7 +531,7 @@ priced as if it were a mid-market category; in log space it prices at the
 0.05 floor. A single peer still never sets its own price: Risk Curators'
 2.97x peer pulls the multiple to 0.4423x, not to 2.97x, and an extreme peer
 still lands at the cap, which is the model's bound. On this snapshot the
-Risk Curators median comes from a single live peer (Api3, at 2.98x mcap/TVL),
+Risk Curators median comes from a single live peer (Api3, at 2.97x mcap/TVL),
 so without shrinkage all 34 Risk Curator rows would price at the 0.80 cap;
 shrunk in log space, they price at 0.4423x. The multiple is rounded to four decimals before
 it is used, so the dashboard's recompute of a row matches board.json exactly.

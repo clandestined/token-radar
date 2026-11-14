@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-23). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-24). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -47,6 +47,12 @@
   // One sentence saying why this row sits where it does, built from the
   // same drivers the model scored: size, momentum, seasoning, category and
   // the quality of the evidence. It is a reading of the numbers, not a claim.
+  // The bands read the numbers they describe: a 5-10% weekly move is not
+  // flat (42 rows read that way), 300-364 days is not half a year (9 rows),
+  // and a multiple below the market median is not mid-range (18 rows at
+  // 0.2013-0.217x against a 0.2343x market). The boundaries are strict
+  // where the words are: exactly 730 days is two years, not two-plus, and
+  // exactly 365 days is a year, not over one.
   function whyHere(row) {
     var parts = [];
     if (row.tvl_usd >= 1e9) parts.push('a very large TVL');
@@ -54,11 +60,14 @@
     else if (row.tvl_usd >= 5e7) parts.push('a TVL at or above the watchlist floor');
     else parts.push('a modest TVL below the watchlist floor');
     if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d >= 10) parts.push('fast seven-day growth' + (row.change_7d > DATA.model.growth_cap ? ', clamped at +' + DATA.model.growth_cap + '%' : ''));
+    else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d >= 5) parts.push('modest seven-day growth');
     else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d <= -10) parts.push('shrinking TVL over seven days' + (row.change_7d < DATA.model.growth_floor ? ', clamped at ' + DATA.model.growth_floor + '%' : ''));
+    else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d <= -5) parts.push('modest seven-day decline');
     else if (row.change_7d === null || row.change_7d === undefined) parts.push('seven-day growth unreported, so it is valued as flat with a small discount');
     else parts.push('flat seven-day growth');
-    if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 730) parts.push('two-plus years running with no token');
-    else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 365) parts.push('over a year running with no token');
+    if (row.age_days !== null && row.age_days !== undefined && row.age_days > 730) parts.push('two-plus years running with no token');
+    else if (row.age_days !== null && row.age_days !== undefined && row.age_days > 365) parts.push('over a year running with no token');
+    else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 300) parts.push('nearly a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 180) parts.push('half a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days < 180) parts.push('a young protocol, seasoned only briefly');
     else parts.push('age unreported, so it is scored as a year old');
@@ -66,7 +75,7 @@
     else if (row.category_multiple <= DATA.model.multiple_floor) parts.push('a category multiple at the model floor');
     else if (row.category_multiple >= 0.5) parts.push('a rich category multiple');
     else if (row.category_multiple <= 0.1) parts.push('a cheap category multiple');
-    else if (row.category_multiple >= 0.2) parts.push('a mid-range category multiple');
+    else if (row.category_multiple >= DATA.market_multiple) parts.push('a mid-range category multiple');
     else parts.push('a below-market category multiple');
     if ((row.chains || []).length >= 3) parts.push('TVL spread across several chains');
     return 'Why rank ' + row.rank + ': ' + parts.join(', ') + '.';

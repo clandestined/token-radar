@@ -1,4 +1,4 @@
-// Token Radar's model (radar-23): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-24): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-23';
+export const MODEL_VERSION = 'radar-24';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -1146,7 +1146,15 @@ const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
   // nobody borrows against a deposit, so there is no health factor
   // to track and no borrow to repay. The supply asset is verifiable
   // too: USDC is the largest asset in the pool, $6.54M of $19.03M on
-  // 14 November 2026. The lending shape would tell its farmer to
+  // 14 November 2026. That figure was re-verified in radar-24 against
+  // DefiLlama's own API token breakdown (api.llama.fi/protocol/
+  // native-credit-pool, tokensInUsd) on 14 November 2026: USDC $6.54M,
+  // the largest asset, of $19.05M total at 11:24 UTC, and $6.25M of
+  // $19.14M in the day's 00:00 UTC entry, so the $19.03M is the same
+  // day's total at an earlier fetch, within intraday drift. The API's
+  // description confirms the pool itself: a unified, single-sided
+  // asset supply pool that enables market makers to borrow assets for
+  // trading. The lending shape would tell its farmer to
   // supply USDC as collateral and borrow against it, repay part of
   // the borrow every week and track the health factor — every step
   // of that is the wrong side of the pool. (DefiLlama: Native Credit
@@ -1244,7 +1252,23 @@ function toLiveRow(p: SnapshotProtocol): LiveRow {
     tvl_usd: p.tvl_usd,
     mcap_usd: p.mcap_usd,
     change_7d: p.change_7d,
-    multiple: p.mcap_usd !== null && p.tvl_usd > 0 ? Math.round((p.mcap_usd / p.tvl_usd) * 1000) / 1000 : null,
+    // Stored unrounded, and the page's toFixed(2) is the only rounding:
+    // rounding to three decimals first double-rounds at display, and four
+    // decimals does not save it either. Api3's true ratio is 2.9747x, so
+    // its two-decimal multiple is 2.97x, but the three-decimal store read
+    // 2.975 and the page showed 2.98x; Zama read 1.64x for a true 1.63x.
+    // And ACryptoS's ratio is 0.0150x, a true 0.02x at two decimals, but
+    // the stored 0.015 displays as 0.01x, because (0.015).toFixed(2) is
+    // "0.01" in JavaScript. Four rows showed a wrong multiple that way
+    // (Api3, Zama and Usual USD0 at 0.28x for a true 0.27x among the peer
+    // samples, Api3 and Zama again in the Live view). The board's own
+    // multiples stay rounded to four decimals, because the page recomputes
+    // each row from the multiple board.json carries; a live multiple is
+    // only ever displayed and sorted, never recomputed from, so the full
+    // ratio is the right thing to store. Checked over all 128 live-token
+    // protocols with a market cap: toFixed(2) from the full ratio matches
+    // the correctly rounded two-decimal value on every one.
+    multiple: p.mcap_usd !== null && p.tvl_usd > 0 ? p.mcap_usd / p.tvl_usd : null,
   };
 }
 
