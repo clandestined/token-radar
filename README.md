@@ -6,6 +6,31 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-16)
+
+Radar-16 keeps radar-15's formula and every implied value, and settles the
+second plan the category shape got wrong, plus the open item from round 12.
+First, Firelight (rank 68): DefiLlama lists it under category Insurance, so
+the insurance shape told its farmer to buy cover, renew it and cancel it —
+but Firelight sells no cover to users. It is the underwriting side: a farmer
+bridges XRP to Flare through the FAssets system to mint FXRP, deposits the
+FXRP into Firelight's Launch Vault, and receives stXRP, a liquid receipt
+token, while the staked FXRP underwrites the DeFi cover protocols buy; the
+farmer earns Firelight Points, and exits run on 30-day coverage periods. Its
+plan now stakes FXRP for stXRP instead, the same disclosed, name-keyed
+override pattern as Hive Protocol, and the scoring still never special-cases
+a name. Second, XION Finance (rank 71) was checked and left alone: the open
+item is settled, not fixed, because it is not a miscategorization.
+DefiLlama's own record for it names the XION chain itself — its site is
+xion.burnt.com, its handle is @burnt_xion, its description is "The First
+Walletless Blockchain Built For Mainstream Adoption", and it was listed on
+2025-07-11, the day the snapshot carries — so category Chain and the chain
+plan (bridge USDC onto XION, transact weekly on the network) are right,
+even though DefiLlama's chain page no longer lists the protocol. The board
+is unchanged: same 195 rows, same ranks, same implied values; only
+Firelight's farm plan moves, and the screenshots are retaken for the
+radar-16 label.
+
 ## The model (radar-15)
 
 Radar-15 keeps radar-14's formula and every implied value, and settles the
@@ -19,8 +44,8 @@ BTC staking pool, under category Chain, so the chain shape told its farmer
 to bridge USDC onto a network the protocol is not. Its plan now stakes BTC
 in B² Hive to safeguard the network and earn B2 rewards, as DefiLlama's own
 page for it says ("Stake BTC, safeguard B², and receive $B2 Tokens"). That
-is the entry's only farm plan that names a protocol instead of deriving
-from its category, and it is disclosed in the code and here because the
+was the entry's only farm plan that named a protocol instead of deriving
+from its category at the time (radar-16 adds a second, Firelight), and it is disclosed in the code and here because the
 snapshot's own record is the thing that is wrong; the scoring still never
 special-cases a name. Third, a recount: radar-14 said 33 of the 34 rows
 whose first chain was not a household name named a real token, but its board
@@ -242,10 +267,13 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). One plan is shaped by the protocol
-itself, not its category, and is disclosed where it is written: Hive
+farm runs; B2 is gas only on the Hub). Two plans are shaped by the protocol
+itself, not its category, and are disclosed where they are written: Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
-plan stakes BTC for B2 rewards instead of bridging onto a network. The weekly action, the number worth
+plan stakes BTC for B2 rewards instead of bridging onto a network; and
+Firelight is the underwriting side of an insurance design, not a buyer of
+cover, so its plan stakes FXRP in its Launch Vault for stXRP and Firelight
+Points instead of buying, renewing and cancelling cover. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32

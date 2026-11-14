@@ -1,4 +1,4 @@
-// Token Radar's model (radar-15): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-16): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-15';
+export const MODEL_VERSION = 'radar-16';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -697,10 +697,12 @@ function exitFor(p: SnapshotProtocol): string {
 /**
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
- * and age), with one disclosed exception: Hive Protocol, whose record lists
+ * and age), with two disclosed exceptions: Hive Protocol, whose record lists
  * B²'s own BTC staking pool under category Chain (see below), so the chain
- * shape would tell its farmer to bridge onto a network the protocol is not.
- * Step 1 names the gas
+ * shape would tell its farmer to bridge onto a network the protocol is not;
+ * and Firelight, whose record lists it under category Insurance, so the
+ * insurance shape would tell its farmer to buy cover Firelight does not
+ * sell to users (see below). Step 1 names the gas
  * token of the protocol's own first chain and the protocol itself, and step
  * 4 names the protocol too, so no step is the same string on two rows: steps
  * 1 and 4 used to read identically for every protocol on the same chain
@@ -720,7 +722,13 @@ function exitFor(p: SnapshotProtocol): string {
  * bridge-onto-the-network action: DefiLlama's own page for it reads "Stake
  * BTC, safeguard B², and receive $B2 Tokens" (hive.bsquared.network), and
  * the pool is a pool for depositing BTC to earn B2 and partner rewards.
- * Step 3 keeps one wallet per
+ * Firelight's plan stakes FXRP in its Launch Vault for stXRP and Firelight
+ * Points, instead of the insurance shape's buy-cover action: Firelight is
+ * the underwriting side, not the buyer — a farmer bridges XRP to Flare
+ * through the FAssets system to mint FXRP, deposits the FXRP, and receives
+ * stXRP, a liquid receipt token, while the staked FXRP underwrites DeFi
+ * cover that protocols buy; no cover is sold to the farmer, and exits run
+ * on 30-day coverage periods. Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
  * protocol alone. Steps 2, 3, 5, 6 and 7 are shaped by the category: the
@@ -742,21 +750,43 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   // is a farm-plan correction of the snapshot's own record, stated here
   // and in the README.
   const isHive = p.slug === 'hive-protocol';
+  // Firelight is the second plan the category cannot shape: its record
+  // lists it under category Insurance, so the insurance shape would tell
+  // its farmer to buy cover Firelight does not sell to users. Firelight is
+  // the underwriting side: a farmer bridges XRP to Flare through the
+  // FAssets system to mint FXRP, deposits the FXRP into Firelight's Launch
+  // Vault, and receives stXRP, a liquid receipt token, while the staked
+  // FXRP underwrites the DeFi cover protocols buy; the farmer earns
+  // Firelight Points, and exits run on 30-day coverage periods. Its steps
+  // stake FXRP for stXRP instead. The scoring never names a protocol; this
+  // is a farm-plan correction of the snapshot's own record, stated here
+  // and in the README, the same disclosed pattern as Hive Protocol.
+  const isFirelight = p.slug === 'firelight';
   const action = isHive
     ? `Stake $${capital} of BTC in ${p.name} on ${chain} to safeguard the network and earn B2 rewards, and keep the staked position in your wallet.`
-    : actionFor(p, capital, chain);
+    : isFirelight
+      ? `Bridge $${capital} of XRP to ${chain} through the FAssets system to mint FXRP, deposit the FXRP into ${p.name}'s Launch Vault, and keep the stXRP receipt token in your wallet.`
+      : actionFor(p, capital, chain);
   const weekly = isHive
     ? `Check the B2 rewards ${p.name} shows each week and restake them, or add a small top-up to the stake.`
-    : weeklyActionFor(p);
+    : isFirelight
+      ? `Check the Firelight Points and the stXRP balance ${p.name} shows each week, and add a small FXRP top-up to the vault when the balance is flat.`
+      : weeklyActionFor(p);
   const track = isHive
     ? `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the staked BTC balance and the B2 rewards earned that week.`
-    : trackFor(p);
+    : isFirelight
+      ? `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the stXRP balance and the Firelight Points it earned that week.`
+      : trackFor(p);
   const claim = isHive
     ? `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`
-    : claimFor(p);
+    : isFirelight
+      ? `Before you withdraw, open ${p.name}'s own staking rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`
+      : claimFor(p);
   const exit = isHive
     ? `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unstake the staked BTC from ${p.name}, close the log and retire the wallet.`
-    : exitFor(p);
+    : isFirelight
+      ? `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the stXRP from ${p.name} for FXRP (exits run on 30-day coverage periods, so allow time), close the log and retire the wallet.`
+      : exitFor(p);
   const gas = gasTokenFor(chain);
   const noGas = gas === null;
   const walletStep = noGas
