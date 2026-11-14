@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-4). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-5). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -50,6 +50,7 @@
     var parts = [];
     if (row.tvl_usd >= 1e9) parts.push('a very large TVL');
     else if (row.tvl_usd >= 1e8) parts.push('a large TVL');
+    else if (row.tvl_usd >= 5e7) parts.push('a TVL at or above the watchlist floor');
     else parts.push('a modest TVL below the watchlist floor');
     if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d >= 10) parts.push('fast seven-day growth');
     else if (row.change_7d !== null && row.change_7d !== undefined && row.change_7d <= -10) parts.push('shrinking TVL over seven days');
@@ -93,6 +94,7 @@
     if (params.get('chain')) state.chain = params.get('chain');
     if (params.get('watch') === '1') state.watch = true;
     if (params.get('tab')) state.tab = params.get('tab');
+    if (params.get('mintvl')) state.minTvl = Number(params.get('mintvl')) || 0;
   }
   function writeHash() {
     var params = new URLSearchParams();
@@ -100,6 +102,7 @@
     if (state.category !== 'all') params.set('category', state.category);
     if (state.chain !== 'all') params.set('chain', state.chain);
     if (state.watch) params.set('watch', '1');
+    if (state.minTvl) params.set('mintvl', String(state.minTvl));
     if (state.tab !== 'pre-token') params.set('tab', state.tab);
     if (state.selected) params.set('p', state.selected);
     var next = params.toString();
@@ -125,13 +128,30 @@
       var av, bv;
       if (key === 'name') { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
       else if (key === 'tvl') { av = a.tvl_usd; bv = b.tvl_usd; }
-      else if (key === 'growth') { av = a.change_7d === null ? -Infinity : a.change_7d; bv = b.change_7d === null ? -Infinity : b.change_7d; }
-      else if (key === 'age') { av = a.age_days === null ? Infinity : a.age_days; bv = b.age_days === null ? Infinity : b.age_days; }
+      else if (key === 'growth') { av = a.change_7d === null ? 0 : a.change_7d; bv = b.change_7d === null ? 0 : b.change_7d; }
+      else if (key === 'age') { av = a.age_days === null ? DATA.model.unknown_age_days : a.age_days; bv = b.age_days === null ? DATA.model.unknown_age_days : b.age_days; }
       else if (key === 'multiple') { av = a.category_multiple; bv = b.category_multiple; }
       else { av = a.implied_value_usd; bv = b.implied_value_usd; }
       if (av < bv) return -state.dir;
       if (av > bv) return state.dir;
       return a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0;
+    });
+  }
+  // The live-token view is filtered by the same controls as the board:
+  // search, category, chain and minimum TVL all apply to it, and the
+  // watchlist toggle leaves it empty, because no live-token protocol is on
+  // the watchlist. A live view that ignored the filters would show the
+  // reader a different board than the controls promise.
+  function liveRows() {
+    var q = state.q.trim().toLowerCase();
+    if (state.watch) return [];
+    return DATA.live.filter(function (r) {
+      if (state.category !== 'all' && r.category !== state.category) return false;
+      if (state.chain !== 'all' && (r.chains || []).indexOf(state.chain) < 0) return false;
+      if (r.tvl_usd < state.minTvl) return false;
+      if (!q) return true;
+      var hay = [r.name, r.slug, r.category, (r.chains || []).join(' ')].join(' ').toLowerCase();
+      return hay.indexOf(q) >= 0;
     });
   }
   function findRow(slug) {
@@ -161,7 +181,7 @@
         el('div', { class: 'fact' }, el('span', { text: 'Watchlist covered' }), el('b', { text: DATA.watchlist_size + ' / ' + DATA.watchlist_size }), el('small', { text: 'every watchlist slug is on the board' })),
         el('div', { class: 'fact' }, el('span', { text: 'Total implied value' }), el('b', { text: fmtUsd(DATA.total_implied_usd) }), el('small', { text: 'sum of all ' + DATA.board_size + ' rows' })),
         el('div', { class: 'fact' }, el('span', { text: 'Median row' }), el('b', { text: fmtUsd(DATA.median_implied_usd) }), el('small', { text: 'half the board is above this' })),
-        el('div', { class: 'fact' }, el('span', { text: 'Live-token protocols set aside' }), el('b', { text: String(DATA.live_size) }), el('small', { text: 'already trading, shown with market caps' }))
+        el('div', { class: 'fact' }, el('span', { text: 'Live-token protocols shown' }), el('b', { text: 'Top ' + DATA.live_size }), el('small', { text: 'of ' + DATA.live_total + ' that record a token; ' + DATA.live_priced + ' with a market cap price the comparables' }))
       )
     );
   }
@@ -212,7 +232,7 @@
       el('div', { class: 'field' }, el('label', { for: 'mintvl', text: 'Minimum TVL' }), tvl),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Scope' }), watch),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live)),
-      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' of ' + DATA.board_size + ' rows shown' : DATA.live.length + ' live-token protocols' })
+      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' of ' + DATA.board_size + ' rows shown' : liveRows().length + ' of ' + DATA.live.length + ' live-token protocols shown' })
     );
   }
 
@@ -283,8 +303,16 @@
   }
 
   function liveTable() {
+    var list = liveRows();
+    if (list.length === 0) {
+      return el('div', { class: 'panel' }, el('div', { class: 'empty' },
+        el('h2', { text: 'No live-token protocol matches that filter' }),
+        el('p', { text: 'Clear the search or pick another category, chain or TVL floor to see the live set again.' }),
+        el('button', { class: 'button primary', type: 'button', text: 'Clear filters', onclick: function () { state.q = ''; state.category = 'all'; state.chain = 'all'; state.watch = false; state.minTvl = 0; writeHash(); render(); } })
+      ));
+    }
     var tbody = el('tbody');
-    DATA.live.forEach(function (r) {
+    list.forEach(function (r) {
       tbody.appendChild(el('tr', null,
         el('td', { class: 'num', text: 'live' }),
         el('td', null, el('div', { class: 'name' }, el('b', { text: r.name }), el('span', { class: 'sub', text: (r.category || 'Other') + ' on ' + (r.chains && r.chains.length ? r.chains.slice(0, 2).join(', ') : 'an unnamed chain') }))),
@@ -298,7 +326,7 @@
     return el('div', { class: 'panel' },
       el('div', { class: 'table-wrap' },
         el('table', null,
-          el('caption', { class: 'sub', text: 'Token live: these protocols already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and their market-cap-to-TVL ratios are the comparables the model prices the board with.' }),
+          el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and the market-cap-to-TVL ratios of the ' + DATA.live_priced + ' with a market cap are the comparables the model prices the board with.' }),
           el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Protocol' }), el('th', { scope: 'col', text: 'TVL' }), el('th', { scope: 'col', text: '7d' }), el('th', { scope: 'col', text: 'Market cap' }), el('th', { scope: 'col', text: 'Mcap / TVL' }), el('th', { scope: 'col', text: 'Token' }))),
           tbody
         )
@@ -308,16 +336,23 @@
 
   function modelPanel() {
     var m = DATA.model;
+    var thin = Object.keys(DATA.peers).filter(function (k) { return DATA.peers[k] < 3; }).length;
+    var thinTotal = Object.keys(DATA.peers).length;
+    var excludedText = Object.keys(DATA.excluded.by_reason).sort().map(function (k) { var n = DATA.excluded.by_reason[k]; var label = k === 'liquid staking / restaking' ? 'liquid staking / restaking products' : k + (n === 1 ? '' : 's'); return n + ' ' + label; }).join(', ');
+    var saturn = null;
+    for (var i = 0; i < DATA.rows.length; i++) if (DATA.rows[i].slug === 'saturn') saturn = DATA.rows[i];
+    var saturnText = saturn ? ' One watchlist protocol is ranked although the wrapper rule would leave it out: Saturn, a Stablecoin Wrapper, sits at rank ' + saturn.rank + ' because the watchlist is the floor and a watchlist slug is always ranked.' : '';
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
       el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. No protocol name is special-cased, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the whole market median with a weight of ' + m.shrink_peers + ' peers: a category with one live peer never sets its own price, and a category with no live peer uses the market median outright.' }),
+      el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories on the board have fewer than three live peers, so most multiples would rest on one or two protocols without it. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(2) + 'x') + '.' }),
       el('div', { class: 'formula' },
         'multiple = (peers x categoryMedian + ' + m.shrink_peers + ' x marketMedian) / (peers + ' + m.shrink_peers + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
       ),
       el('div', { class: 'formula' },
         'implied = round( tvl_usd x multiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'
       ),
-      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the ranking: they are a token that already trades, in another wrapper. "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
+      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the early radar: they are a token that already trades, in another wrapper. ' + DATA.excluded.total + ' pre-token protocols are set aside that way (' + excludedText + ').' + saturnText + ' "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
     );
   }
 
@@ -372,7 +407,7 @@
       el('div', { class: 'equation' },
         el('div', null, el('span', { text: 'TVL' }), el('b', { class: 'num', text: fmtUsd(row.tvl_usd) })),
         el('div', null, el('span', { text: 'Seven-day growth' }), el('b', { class: 'num', text: fmtPct(row.change_7d) })),
-        el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: fmtAge(row.age_days) })),
+        el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: row.age_days === null ? 'unknown (scored as 1y)' : fmtAge(row.age_days) })),
         el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(2) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(2) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(2) + 'x market median' : row.comparable_peers + ' live peers') + ')' })),
         el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) })),
         el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) })),

@@ -1,4 +1,4 @@
-// Token Radar's model (radar-4): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-5): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -7,10 +7,16 @@
 // cap, no CoinGecko id, no symbol); live-token protocols are kept apart and
 // shown with their market's own values, never mixed into the ranking.
 // Wrapped, staked, restaked, bridged and exchange products are left out of
-// the ranking for the same reason the watchlist leaves them out: they are a
+// the early radar for the same reason the watchlist leaves them out: they are a
 // token that already trades, in another wrapper. The floor is the watchlist's
 // floor, not a rankability ceiling: a $2.8B protocol the list leaves out
-// (Sentora Curator) is no worse a subject than a $49M one it names.
+// (Sentora Curator) is no worse a subject than a $49M one it names. One
+// watchlist slug is ranked although the early radar would leave it out:
+// Saturn, a Stablecoin Wrapper at rank 31, because a watchlist slug is
+// always ranked; the dashboard states that carve-out where it states the
+// rule. The 147 pre-token protocols the board does not rank are counted by
+// exclusion in the dashboard's data, so the reader can see what was set
+// aside and why, instead of taking the board's completeness on trust.
 //
 // Implied value follows only from the snapshot's own figures, through one
 // function applied to every row. No protocol name is ever special-cased.
@@ -105,7 +111,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-4';
+export const MODEL_VERSION = 'radar-5';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -201,6 +207,11 @@ export interface RadarData {
   rows: RadarRow[];
   live: LiveRow[];
   peer_samples: Record<string, LiveRow[]>;
+  /** Pre-token protocols the board does not rank, and why: the exclusion the model applied to each. */
+  excluded: { total: number; by_reason: Record<string, number> };
+  /** Protocols that record a token at all, and the subset with a market cap that prices the comparables. */
+  live_total: number;
+  live_priced: number;
 }
 
 /** Why the snapshot is not one this model can score. */
@@ -328,6 +339,27 @@ export function isRankable(p: SnapshotProtocol): boolean {
   if (WRAPPED_WORD.test(p.name)) return false;
   if (EXCHANGE_PREFIX.test(p.name)) return false;
   return true;
+}
+
+/**
+ * Why a pre-token protocol the board does not rank was left out, in the
+ * model's own words: the first exclusion that applies, in the order the
+ * watchlist rule itself puts them (an exchange first, then a bridge, then a
+ * staking wrapper, then a versioned pool, then a wrapped or staked name).
+ * The watchlist is the floor, so this never describes a watchlist protocol:
+ * one watchlist slug, Saturn (a Stablecoin Wrapper), is ranked at 31 even
+ * though the wrapper rule would leave it out, because a watchlist slug is
+ * always ranked. The dashboard states that carve-out where it states the
+ * rule, so the board and the rule it claims can never be caught disagreeing.
+ */
+export function exclusionReason(p: SnapshotProtocol): string {
+  if (p.category === 'CEX' || EXCHANGE_PREFIX.test(p.name)) return 'exchange';
+  if (p.category === 'Bridge' || p.category === 'Canonical Bridge' || (p.category !== null && p.category.toLowerCase().includes('bridge'))) return 'bridge';
+  if (p.category === 'Liquid Staking' || p.category === 'Liquid Restaking' || p.category === 'Restaked BTC') return 'liquid staking / restaking';
+  if (p.category !== null && p.category.toLowerCase().includes('wrapper')) return 'stablecoin wrapper';
+  if (VERSIONED.test(p.name)) return 'versioned pool';
+  if (WRAPPED_WORD.test(p.name)) return 'wrapped / staked name';
+  return 'other';
 }
 
 /** A number rounded to four decimals, as the board states its multiples. */
@@ -464,18 +496,59 @@ function trackFor(p: SnapshotProtocol): string {
   if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the vault share balance and any points balance the protocol shows.`;
   if (c.includes('perpetual') || c.includes('derivative')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the margin balance and the outcome of each trade.`;
   if (c.includes('prediction')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note each settled position and its outcome.`;
+  if (c.includes('stable')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the stable balance and the peg or yield it shows.`;
+  if (c.includes('rwa')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the asset balance and the yield it accrued that week.`;
+  if (c.includes('insurance')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the cover amount and the date it lapses.`;
+  if (c.includes('basis') || c.includes('options')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the strategy balance and the funding or premium it earned.`;
+  if (c.includes('liquid')) return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the receipt token balance and the staking yield it shows.`;
   return `Track the position weekly in a farm log with the wallet address, the dates and every transaction hash, and note the position size and any points balance the protocol shows.`;
+}
+
+/** The native gas token of a chain, where it is a household name; anything else is named by the chain, never guessed. */
+function gasTokenFor(chain: string): string {
+  const known: Record<string, string> = {
+    Ethereum: 'ETH', Base: 'ETH', Arbitrum: 'ETH', Optimism: 'ETH', Ink: 'ETH', Unichain: 'ETH', Linea: 'ETH', Scroll: 'ETH', 'zkSync Era': 'ETH', 'World Chain': 'ETH',
+    Solana: 'SOL', Binance: 'BNB', Bitcoin: 'BTC', Avalanche: 'AVAX', Polygon: 'POL', Sui: 'SUI', Aptos: 'APT', Tron: 'TRX', 'Hyperliquid L1': 'HYPE',
+    Stellar: 'XLM', Flare: 'FLR', Berachain: 'BERA', Mantle: 'MNT', Sonic: 'S', Sei: 'SEI', Celo: 'CELO', Ronin: 'RON', Bittensor: 'TAO', Algorand: 'ALGO', Ripple: 'XRP', Starknet: 'STRK', Monad: 'MON',
+  };
+  return known[chain] ?? `that chain's native gas token`;
+}
+
+/** Where to look for the claim, by category: the page that would actually carry it for this kind of protocol. */
+function claimFor(p: SnapshotProtocol): string {
+  const c = (p.category ?? '').toLowerCase();
+  const name = p.name;
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `Before you withdraw, open the ${name} vault's own points or rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  if (c.includes('dex') || c.includes('leveraged farm')) return `Before you withdraw, open ${name}'s own pool incentives or points page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `Before you withdraw, open ${name}'s own lending rewards or points page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  if (c.includes('perpetual') || c.includes('derivative')) return `Before you withdraw, open ${name}'s own trading rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  if (c.includes('prediction')) return `Before you withdraw, open ${name}'s own market rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+  return `Before you withdraw, open the protocol's own points or rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`;
+}
+
+/** How to unwind the farm, by category: the position that actually has to come out. */
+function exitFor(p: SnapshotProtocol): string {
+  const c = (p.category ?? '').toLowerCase();
+  if (c.includes('yield') || c.includes('curator') || c.includes('allocator') || c.includes('vault')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the vault shares, close the log and retire the wallet.`;
+  if (c.includes('dex') || c.includes('leveraged farm')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then remove the liquidity, close the log and retire the wallet.`;
+  if (c.includes('lend') || c.includes('cdp') || c.includes('collateral')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then repay the borrow, withdraw the collateral, close the log and retire the wallet.`;
+  if (c.includes('perpetual') || c.includes('derivative')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then close any open trade, withdraw the margin, close the log and retire the wallet.`;
+  if (c.includes('prediction')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then close any open position, close the log and retire the wallet.`;
+  if (c.includes('stable')) return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the stable asset, close the log and retire the wallet.`;
+  return `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unwind the farm position and close the log.`;
 }
 
 /**
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
- * and age), never from a hand-written list of names. Step 3 keeps one wallet
- * per protocol: airdrop filters punish wallets that farm dozens of protocols
+ * and age), never from a hand-written list of names. Step 1 names the gas
+ * token of the protocol's own first chain. Step 3 keeps one wallet per
+ * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
- * protocol alone. Steps 3 and 5 are shaped by the category: the weekly
- * action and the number worth logging differ between a lender, a pool and a
- * vault, so no two categories farm the same way.
+ * protocol alone. Steps 3, 5, 6 and 7 are shaped by the category: the
+ * weekly action, the number worth logging, the page that would carry a
+ * claim and the way the position unwinds all differ between a lender, a
+ * pool and a vault, so no two categories farm the same way.
  */
 export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const chain = chainOf(p);
@@ -485,7 +558,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const others = p.chains.length > 1 ? ` Repeat the deposit on a second chain, ${p.chains[1]}, so the activity is not tied to one network.` : ` Use the protocol on ${chain} only, and do not split the position across networks it does not list.`;
   return [
     {
-      text: `Use a fresh wallet that holds only the funds you plan to farm, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`,
+      text: `Use a fresh wallet that holds only the funds you plan to farm, fund it with ${gasTokenFor(chain)} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`,
       cost: 'under $3 of gas for the first transaction',
       time: '5 minutes',
     },
@@ -510,12 +583,12 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: '5 minutes a week',
     },
     {
-      text: `Before you withdraw, open the protocol's own points or rewards page from its official site and claim only from the link it publishes, never from a link in a message, and do it inside the claim window the protocol announces.`,
+      text: claimFor(p),
       cost: 'no fee to check, and never pay to claim',
       time: '10 minutes',
     },
     {
-      text: `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then unwind the farm position and close the log.`,
+      text: exitFor(p),
       cost: 'about $3 of gas to claim',
       time: '15 minutes to claim',
     },
@@ -641,8 +714,25 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     rows: board.map(radarRow),
     live,
     peer_samples: liveSamples(snapshot),
+    excluded: excludedBreakdown(snapshot, board),
+    live_total: snapshot.protocols.filter((p) => !isPreToken(p)).length,
+    live_priced: snapshot.protocols.filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.tvl_usd > 0).length,
   };
   return { board, radar };
+}
+
+/** The pre-token protocols the board does not rank, counted by the exclusion that left each one out. */
+export function excludedBreakdown(snapshot: Snapshot, board: BoardRow[]): { total: number; by_reason: Record<string, number> } {
+  const ranked = new Set(board.map((r) => r.slug));
+  const by_reason: Record<string, number> = {};
+  let total = 0;
+  for (const p of snapshot.protocols) {
+    if (!isPreToken(p) || ranked.has(p.slug)) continue;
+    const reason = exclusionReason(p);
+    by_reason[reason] = (by_reason[reason] ?? 0) + 1;
+    total += 1;
+  }
+  return { total, by_reason };
 }
 
 /** The snapshot out of a file's text, refused unless it is the shape the model scores. */

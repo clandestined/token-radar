@@ -6,7 +6,7 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-4)
+## The model (radar-5)
 
 One function scores every row, from the snapshot's own figures only:
 
@@ -40,14 +40,30 @@ The board holds 195 rows on this snapshot: all 40 watchlist protocols plus
 every other rankable pre-token protocol the watchlist leaves out, whatever
 its size. The floor is the watchlist's floor, never a rankability ceiling: a
 $2.8B protocol the list leaves out (Sentora Curator, rank 2) is no worse a
-subject than a $49M one it names. Live-token protocols are set aside and
+subject than a $49M one it names. The 147 pre-token protocols the board does
+not rank are counted by exclusion on the dashboard (52 exchanges, 39 bridges,
+38 liquid staking / restaking products, 11 versioned pools, 6 wrapped / staked
+names, 1 stablecoin wrapper), so the reader can see what was set aside and
+why. One watchlist protocol is ranked although the early-radar wrapper rule
+would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 31, because a
+watchlist slug is always ranked. The Live token view shows the 24 biggest
+live-token protocols by market cap, of 416 that record a token; the
+comparables are priced from the 133 of those with a market cap. The
+shrinkage is evidence-driven, not a guessed weight: 33 of the 47 categories on
+the board have fewer than three live peers, so most multiples would rest on
+one or two protocols without it. Live-token protocols are set aside and
 shown with their market caps. Farm plans are seven steps each, derived from
 the protocol's category, chains, TVL and age, with a cost and a time on every
-step, one wallet per protocol so the farm does not look like a Sybil cluster,
-and the weekly action and the number worth logging shaped by the category, so
-a lender, a pool and a vault do not farm the same way. Every detail view also
+step, one wallet per protocol so the farm does not look like a Sybil cluster.
+The wallet step names the gas token of the protocol's own first chain, and
+the weekly action, the number worth logging, the page that would carry a
+claim and the way the position unwinds are all shaped by the category, so a
+lender, a pool and a vault do not farm the same way. Every detail view also
 says, in one sentence, why that row sits where it does: size, momentum,
-seasoning, category and the quality of the evidence behind it.
+seasoning, category and the quality of the evidence behind it. The Live token
+view answers the same search, category, chain and TVL filters as the board,
+and rows with unreported growth or age sort at the values the model scores
+them at (flat, and 365 days), never as the oldest or the fastest.
 
 ## Run it
 
