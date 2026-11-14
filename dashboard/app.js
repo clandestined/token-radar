@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-7). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-8). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -62,7 +62,9 @@
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 180) parts.push('half a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days < 180) parts.push('a young protocol, seasoned only briefly');
     else parts.push('age unreported, so it is scored as a year old');
-    if (row.category_multiple >= 0.5) parts.push('a rich category multiple');
+    if (row.category_multiple >= DATA.model.multiple_cap) parts.push('a category multiple at the model cap');
+    else if (row.category_multiple <= DATA.model.multiple_floor) parts.push('a category multiple at the model floor');
+    else if (row.category_multiple >= 0.5) parts.push('a rich category multiple');
     else if (row.category_multiple <= 0.1) parts.push('a cheap category multiple');
     else if (row.category_multiple >= 0.2) parts.push('a mid-range category multiple');
     else parts.push('a below-market category multiple');
@@ -419,12 +421,21 @@
     entries.forEach(function (e) {
       var peers = DATA.peers ? (DATA.peers[e[0]] || 0) : 0;
       var raw = DATA.raw_multiples ? DATA.raw_multiples[e[0]] : null;
+      // A multiple sitting on the model's bound says so outright: a reader
+      // who sees Prediction Market's raw 400.20x next to a used 0.8000x
+      // should not have to infer that the cap bound it, and a reader who
+      // sees Staking Pool's 0.0500x should see the floor did the same.
+      var read = e[1] >= DATA.model.multiple_cap ? 'at the model cap: the raw median exceeds the bound'
+        : e[1] <= DATA.model.multiple_floor ? 'at the model floor: the raw median is below the bound'
+        : peers === 0 ? 'no live peer: market median'
+        : peers < 3 ? 'thin evidence: shrunk toward the market'
+        : 'median live mcap / TVL in this category';
       tbody.appendChild(el('tr', null,
         el('td', null, el('b', { text: e[0] })),
         el('td', { class: 'num', text: e[1].toFixed(4) + 'x' }),
         el('td', { class: 'num', text: String(peers) }),
         el('td', { class: 'num', text: raw === null || raw === undefined ? 'n/a' : raw.toFixed(4) + 'x' }),
-        el('td', { class: 'num', text: peers === 0 ? 'no live peer: market median' : peers < 3 ? 'thin evidence: shrunk toward the market' : 'median live mcap / TVL in this category' })
+        el('td', { class: 'num', text: read })
       ));
     });
     return el('section', { class: 'panel peers' },
@@ -465,7 +476,7 @@
         el('div', null, el('span', { text: 'TVL' }), el('b', { class: 'num', text: fmtUsd(row.tvl_usd) })),
         el('div', null, el('span', { text: 'Seven-day growth' }), el('b', { class: 'num', text: fmtPct(row.change_7d) })),
         el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: row.age_days === null ? 'unknown (scored as 1y)' : fmtAge(row.age_days) })),
-        el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(4) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers + ' live peers') + ')' })),
+        el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(4) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers + ' live peers') + ')' + (row.category_multiple >= DATA.model.multiple_cap ? ' — at the ' + DATA.model.multiple_cap.toFixed(2) + 'x cap' : row.category_multiple <= DATA.model.multiple_floor ? ' — at the ' + DATA.model.multiple_floor.toFixed(2) + 'x floor' : '') })),
         el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) })),
         el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) })),
         el('div', null, el('span', { text: 'Breadth multiplier' }), el('b', { class: 'num', text: String(row.breadth_multiplier) })),

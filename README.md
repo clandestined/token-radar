@@ -6,7 +6,24 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-7)
+## The model (radar-8)
+
+Radar-8 keeps radar-7's formula and every implied value, and fixes two
+things a reader could catch it on. First, the farm plans: steps 1 and 4
+used to read identically for every protocol on the same chain (one step-1
+string covered 55 rows), so the plans looked templated where the action
+differed; both steps now name the protocol, so all seven steps are a
+different string on all 195 rows. Second, a multiple sitting on the
+model's bound now says so in the comparables table, in the detail view's
+multiple line and in the why-sentence: Prediction Market's raw 400.20x
+peer prices at the 0.80 cap, and Staking Pool's raw 0.002x peer prices at
+the 0.05 floor, and neither is left for the reader to infer from the two
+numbers side by side. The cap stays the guard for the Prediction Market
+case: a $25M peer-TVL floor would throw out 58 of the 119 priced peers
+(including the only peer of Risk Curators, Chain, Options and NFT
+Marketplace), and winsorizing the raw median would collapse the rich
+single-peer categories back to one number, the flaw radar-7 fixed; the
+cap bounds the outlier and the raw stays visible.
 
 One function scores every row, from the snapshot's own figures only:
 

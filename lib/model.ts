@@ -1,4 +1,4 @@
-// Token Radar's model (radar-7): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-8): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -120,7 +120,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-7';
+export const MODEL_VERSION = 'radar-8';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -652,7 +652,11 @@ function exitFor(p: SnapshotProtocol): string {
  * A protocol's farm plan: seven steps, each an action with a cost and a time.
  * The plan is derived from the protocol's own record (category, chains, TVL
  * and age), never from a hand-written list of names. Step 1 names the gas
- * token of the protocol's own first chain. Step 3 keeps one wallet per
+ * token of the protocol's own first chain and the protocol itself, and step
+ * 4 names the protocol too, so no step is the same string on two rows: steps
+ * 1 and 4 used to read identically for every protocol on the same chain
+ * (one step-1 string covered 55 rows), which made the plan look templated
+ * even where the action differed. Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
  * protocol alone. Steps 2, 3, 5, 6 and 7 are shaped by the category: the
@@ -669,7 +673,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const others = p.chains.length > 1 ? ` Repeat the deposit on a second chain, ${p.chains[1]}, so the activity is not tied to one network.` : ` Use the protocol on ${chain} only, and do not split the position across networks it does not list.`;
   return [
     {
-      text: `Use a fresh wallet that holds only the funds you plan to farm, fund it with ${gasTokenFor(chain)} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`,
+      text: `Open a fresh wallet for ${p.name}, fund it with ${gasTokenFor(chain)} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`,
       cost: 'under $3 of gas for the first transaction',
       time: '5 minutes',
     },
@@ -684,7 +688,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: '10 minutes a week',
     },
     {
-      text: `Hold the position for at least ${hold} days so the activity is counted in more than one snapshot.${others}`,
+      text: `Hold the ${p.name} position for at least ${hold} days so the activity is counted in more than one snapshot.${others}`,
       cost: `the $${capital} stays in the position`,
       time: `${hold} days`,
     },
