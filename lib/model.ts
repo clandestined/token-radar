@@ -1,4 +1,4 @@
-// Token Radar's model (radar-20): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-21): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-20';
+export const MODEL_VERSION = 'radar-21';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -1073,6 +1073,62 @@ const PLAN_CORRECTIONS: Record<string, PlanCorrection> = {
     track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the PT balance, the fixed rate it locked in and the maturity date.`,
     claim: (p) => `A PT redeems for the underlying asset at maturity, so there is no rewards page to claim from — check the redemption on the official ${p.name} page at maturity, and never pay to claim or follow a claim link in a message.`,
     exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then hold the PT to maturity and redeem it for the underlying asset on ${p.name}, close the log and retire the wallet.`,
+  },
+  // Exponent Risk Tranching splits a yield-bearing asset (ONyc, AUTO,
+  // nOPAL, eHYUSD) into a senior tranche and a junior tranche: a farmer
+  // deposits the underlying asset into one side and receives LP shares
+  // for that tranche (srONyc for the senior side of the ONyc market),
+  // the senior side earns the lower yield in exchange for junior capital
+  // sitting beneath it as protection, and the yield accrues in the
+  // tranche's NAV, not on a rewards page. The first and largest market
+  // is ONyc, OnRe's reinsurance token, and senior withdrawals pause
+  // while a tranche is in a Recovery Period after a loss. The yield
+  // shape would tell its farmer to deposit USDC into a vault and keep
+  // vault shares — there is no USDC vault, and there is no Exponent
+  // token or points program. (Exponent docs: Risk Tranching; Vitrine
+  // risk report: ONyc tranche $5.94M NAV, "There is no Exponent token
+  // or Emissions and points program".)
+  'exponent-risk-tranching': {
+    why: 'DefiLlama lists Exponent Risk Tranching under Yield, so the yield shape would tell its farmer to deposit USDC into a vault — but Risk Tranching is not a vault: a farmer deposits the market\u2019s underlying asset into a senior or junior tranche and receives LP shares for that tranche, and there is no USDC to deposit.',
+    action: (p, capital, chain) => `Deposit $${capital} of ONyc into the senior tranche of ${p.name} on ${chain} and hold the srONyc LP shares in your wallet.`,
+    weekly: (p) => `Check the srONyc yield and the tranche\u2019s coverage on ${p.name} each week and hold the position — the senior side earns a lower yield in exchange for junior capital sitting beneath it as protection.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the srONyc LP share balance, the senior yield and the tranche\u2019s coverage.`,
+    claim: (p) => `The senior yield accrues in the tranche\u2019s NAV, so there is no rewards page to claim from — check the position on the official ${p.name} page, and never pay to claim or follow a claim link in a message.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then redeem the srONyc LP shares from ${p.name} for ONyc (senior withdrawals pause during a Recovery Period if the tranche takes a loss, so allow extra time), close the log and retire the wallet.`,
+  },
+  // Exponent Strategy Vaults are managed vaults: a farmer deposits the
+  // vault's accepted asset — SOL for the largest vaults — and the vault
+  // manager allocates it across strategies and rebalances it, so there
+  // is nothing to restake by hand. The largest vault is onycSOL,
+  // managed by RockawayX, launched 4 November 2026 with a $10M cap and
+  // weekly withdrawals; it combines SOL staking yield with ONyc and
+  // pays $20K a month of SOL incentives plus 4x OnRe points. The yield
+  // shape would tell its farmer to deposit USDC into a vault and claim
+  // and restake rewards each week — USDC is the smaller line, and the
+  // manager does the allocating. (Exponent docs: Strategy Vaults;
+  // Vitrine risk report: SOL line $12.4M vs USDC $5.9M; onycSOL vault.)
+  'exponent-strategy-vaults': {
+    why: 'DefiLlama lists Exponent Strategy Vaults under Onchain Capital Allocator, so the yield shape would tell its farmer to deposit USDC into a vault — but the vaults take the vault\u2019s accepted asset (SOL for the largest vaults), and the vault manager allocates and rebalances the deposit, so there is nothing to restake by hand.',
+    action: (p, capital, chain) => `Deposit $${capital} of SOL into the onycSOL strategy vault on ${p.name} on ${chain}, managed by RockawayX, and keep the vault shares in your wallet.`,
+    weekly: (p) => `Check the position value and the curator\u2019s allocations on ${p.name} each week and hold it — the manager rebalances the vault, so there is nothing to restake by hand.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the vault share balance, the position value and the OnRe points the vault shows that week.`,
+    claim: (p) => `Check the onycSOL vault\u2019s own page on ${p.name} for the SOL incentives and OnRe points it pays, and claim only from the link the official site publishes, never from a link in a message, and do it inside the claim window the protocol announces.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then request a withdrawal of the vault shares from ${p.name} (the onycSOL vault processes withdrawals weekly, so allow extra time), close the log and retire the wallet.`,
+  },
+  // Figure Markets Prime is a lender-side marketplace, not a borrow
+  // market: Democratized Prime lets users lend USDC (or USD, YLDS or
+  // crypto) into pools that fund HELOC-backed loans, while the
+  // Crypto-Backed Loan side posts crypto — BTC, ETH or SOL — as
+  // collateral, never USDC. The lending shape would tell its farmer to
+  // supply USDC as collateral and borrow against it, then repay the
+  // borrow — there is no borrow-against-your-supply on either side.
+  // (Figure Markets: Democratized Prime; SEC Form 497Ad.)
+  'figure-markets-prime': {
+    why: 'DefiLlama lists Figure Markets Prime under Lending, so the lending shape would tell its farmer to supply USDC as collateral and borrow against it — but Democratized Prime is a lender-side marketplace: users lend USDC into pools that fund HELOC-backed loans, and the borrow side posts crypto as collateral, never USDC.',
+    action: (p, capital, chain) => `Lend $${capital} of USDC into a Democratized Prime pool on ${p.name} on ${chain} to fund HELOC-backed loans and keep the pool position in your wallet.`,
+    weekly: (p) => `Check the yield the Democratized Prime pool paid that week on ${p.name} and leave it compounding instead of withdrawing it.`,
+    track: (p) => `Track the position weekly in a farm log for ${p.name} with the wallet address, the dates and every transaction hash, and note the pool balance, the yield it paid that week and the loans it funds.`,
+    exit: (p) => `If a token launches, claim within the first week, sell half at once and keep the rest for 30 days, then withdraw the deposit from the Democratized Prime pool on ${p.name}, close the log and retire the wallet.`,
   },
 };
 

@@ -6,6 +6,41 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-21)
+
+Radar-21 keeps radar-20's formula and every implied value, and fixes three
+more farm plans the category shapes got wrong — two of them the rows round
+20 deliberately left alone, and one the rows round 20's audit cleared.
+First, the two Exponent rows: round 20 left Risk Tranching and Strategy
+Vaults on the generic wording because no single deposit asset could be
+verified for them, and that reason no longer holds. Risk Tranching splits
+a yield-bearing asset into a senior and a junior tranche — its first and
+largest market is ONyc, OnRe's reinsurance token, at $5.94M of tranche
+NAV — so its plan now deposits ONyc into the senior tranche and holds the
+srONyc LP shares, with the yield accruing in the tranche's NAV and senior
+withdrawals pausing during a Recovery Period; there is no Exponent token
+or points program. Strategy Vaults are managed vaults that take the
+vault's accepted asset — SOL for the largest vaults, $12.4M against $5.9M
+of USDC — and the largest vault is the RockawayX-managed onycSOL vault,
+launched 4 November 2026 with a $10M cap and weekly withdrawals, so its
+plan now deposits SOL into onycSOL and checks the curator's allocations,
+with the claim naming the SOL incentives and OnRe points the vault pays.
+Second, Figure Markets Prime (rank 34): round 20's audit cleared the
+lending rows, but a sample re-check found Prime is a lender-side
+marketplace — Democratized Prime lends USDC into pools that fund
+HELOC-backed loans, and the borrow side posts crypto as collateral,
+never USDC — so the lending shape's supply-USDC-and-borrow-against-it
+is wrong on either side, and its plan now lends USDC into a Democratized
+Prime pool instead. The other clearances from round 20 stand: 3F's
+stablecoin-depositor side, BounceBit Prime's USDC deposits, and perp
+margin. Twenty-four of 195 plans are now corrected in the one table —
+still plan corrections, not a hardcoded ranking: the scoring never names
+a protocol, each entry states why the snapshot's record is wrong and
+gives only the steps the record gets wrong, and every other step still
+comes from the category shape. The board is unchanged: same 195 rows,
+same ranks, same implied values; only farm plans move, on 3 rows, and
+the screenshots are retaken for the radar-21 label.
+
 ## The model (radar-20)
 
 Radar-20 keeps radar-19's formula and every implied value, and fixes the
@@ -414,7 +449,7 @@ rows whose first chain was not a household name name a verified token,
 Tempo names a USD stablecoin because it has no native gas token, and Proton
 says transactions carry no gas fee because it charges none. No row is left
 on the generic wording: BSquared is settled (BTC on the rollup, where the
-farm runs; B2 is gas only on the Hub). Twenty-one plans are corrected against the
+farm runs; B2 is gas only on the Hub). Twenty-four plans are corrected against the
 snapshot's own record, in one table (see Snapshot corrections below): Hive
 Protocol is B² Hive, the network's own BTC staking pool, not a chain, so its
 plan stakes BTC for B2 rewards instead of bridging onto a network; Firelight
@@ -428,7 +463,7 @@ DeFi Saver is a management layer that takes no deposits, so its plan opens a
 position through it and automates it; Bittensor dTAO is a staking system, not
 an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points
 program, so its plan checks the rewards page that pays in pUSD instead of a
-claim page. Twenty-one plans in all. The weekly action, the number worth
+claim page. Twenty-four plans in all. The weekly action, the number worth
 logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
@@ -446,7 +481,7 @@ them at (flat, and 365 days), never as the oldest or the fastest.
 
 ## Snapshot corrections
 
-Twenty-one farm plans follow the protocol's own documentation instead of the
+Twenty-four farm plans follow the protocol's own documentation instead of the
 snapshot's category, because the snapshot's record mislabels the protocol.
 They live in one table, PLAN_CORRECTIONS in lib/model.ts, keyed by slug,
 each entry stating why the record is wrong and giving only the steps the
@@ -567,6 +602,29 @@ and the scoring never names a protocol.
   row left on the generic wording: its own litepaper lists USDC as an
   accepted CDP collateral at 90% LTV, so the generic asset is genuinely
   accepted there.
+- Exponent Risk Tranching (rank 153): DefiLlama lists it under Yield, and
+  the yield shape would tell its farmer to deposit USDC into a vault —
+  but Risk Tranching splits a yield-bearing asset into a senior and a
+  junior tranche, and there is no USDC vault to deposit into: its first
+  and largest market is ONyc, so its plan deposits ONyc into the senior
+  tranche and holds the srONyc LP shares, with the yield accruing in the
+  tranche's NAV and senior withdrawals pausing during a Recovery Period
+  (Exponent docs: Risk Tranching; Vitrine risk report).
+- Exponent Strategy Vaults (rank 188): DefiLlama lists it under Onchain
+  Capital Allocator, and the yield shape would tell its farmer to deposit
+  USDC into a vault — but the vaults take the vault's accepted asset,
+  SOL for the largest vaults, and the manager allocates and rebalances
+  the deposit: the largest vault is the RockawayX-managed onycSOL vault,
+  so its plan deposits SOL into onycSOL, with the claim naming the SOL
+  incentives and OnRe points the vault pays (Exponent docs: Strategy
+  Vaults; Vitrine risk report).
+- Figure Markets Prime (rank 34): DefiLlama lists it under Lending, and
+  the lending shape would tell its farmer to supply USDC as collateral
+  and borrow against it — but Democratized Prime is a lender-side
+  marketplace: users lend USDC into pools that fund HELOC-backed loans,
+  and the borrow side posts crypto as collateral, never USDC, so its plan
+  lends USDC into a Democratized Prime pool instead (Figure Markets:
+  Democratized Prime; SEC Form 497Ad).
 
 ## Run it
 
