@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-12). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-13). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -93,17 +93,39 @@
     return node;
   }
 
+  // Whether a category or a chain is one the board knows: a hash is a link,
+  // not a command, so a value the board does not know is ignored and the
+  // board opens, instead of an empty board the controls deny knowing about.
+  function hasCategory(c) {
+    var list = DATA.rows.concat(DATA.live);
+    for (var i = 0; i < list.length; i++) if ((list[i].category || 'Other') === c) return true;
+    return false;
+  }
+  function hasChain(c) {
+    var list = DATA.rows.concat(DATA.live);
+    for (var i = 0; i < list.length; i++) {
+      var chains = list[i].chains || [];
+      for (var j = 0; j < chains.length; j++) if (chains[j] === c) return true;
+    }
+    return false;
+  }
+
   function readHash() {
     var hash = window.location.hash.replace(/^#/, '');
     if (!hash) return;
     var params = new URLSearchParams(hash);
     if (params.get('q')) state.q = params.get('q');
-    if (params.get('p')) state.selected = params.get('p');
-    if (params.get('category')) state.category = params.get('category');
-    if (params.get('chain')) state.chain = params.get('chain');
+    var p = params.get('p');
+    if (p && findRow(p)) state.selected = p;
+    var cat = params.get('category');
+    if (cat && (cat === 'all' || hasCategory(cat))) state.category = cat;
+    var ch = params.get('chain');
+    if (ch && (ch === 'all' || hasChain(ch))) state.chain = ch;
     if (params.get('watch') === '1') state.watch = true;
-    if (params.get('tab')) state.tab = params.get('tab');
-    if (params.get('mintvl')) state.minTvl = Number(params.get('mintvl')) || 0;
+    var tab = params.get('tab');
+    if (tab === 'pre-token' || tab === 'live') state.tab = tab;
+    var mintvl = Number(params.get('mintvl'));
+    if (mintvl === 50000000 || mintvl === 100000000 || mintvl === 500000000) state.minTvl = mintvl;
     if (params.get('page')) state.page = Math.max(1, Number(params.get('page')) || 1);
   }
   function writeHash() {

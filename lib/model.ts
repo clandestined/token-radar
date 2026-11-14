@@ -1,4 +1,4 @@
-// Token Radar's model (radar-12): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-13): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-12';
+export const MODEL_VERSION = 'radar-13';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -594,12 +594,29 @@ function trackFor(p: SnapshotProtocol): string {
   return `Track the position weekly in a farm log for ${name} with the wallet address, the dates and every transaction hash, and note ${note}`;
 }
 
-/** The native gas token of a chain, where it is a household name; anything else is named by the chain, never guessed. */
-function gasTokenFor(chain: string): string {
+/** The gas token of a chain, where the chain's own record names it, or null where the chain charges no gas at all.
+ * The household names were in the map from the start (ETH on the EVM rollups, SOL, BTC, AVAX and the rest); the
+ * rest were checked against the chain's own documentation or its gas-token record before they were added here,
+ * never guessed from the chain's name. Arc pays gas in USDC (Circle's gas reference), Plasma's is XPL (its
+ * paymaster subsidises USDT transfers only, every other transaction pays XPL), Stable's is USDT0, Provenance's is
+ * HASH (its gas-and-fees docs), Noble's is USDC (its USDC fee model), Manta Pacific's, Reya's, Morph's, RISE's
+ * and Robinhood Chain's is ETH (each an Ethereum L2 with ETH gas), Mezo's is BTC, XION's is XION, RSK's is RBTC
+ * (Rootstock's gas docs), Kava's is KAVA, Canton's is CC (its tokenomics docs: traffic fees are paid in CC),
+ * Bifrost Network's is BFC, Fluent's is BLEND, Stacks' is STX (its fees docs: microSTX), Plume's is PLUME, and
+ * Klaytn's is KAIA (KLAY migrated to KAIA at the Kaia merger). Tempo has no native gas token: fees are paid in
+ * any supported USD stablecoin, so the step names that instead of a ticker. Four chains stay on the generic
+ * wording because no public record settles their gas token: BSquared (B2 on its hub, BTC on its rollup), Pharos
+ * (PHRS on its testnet, its mainnet token unclear), Strato and Qubic. Proton returns null: XPR Network charges
+ * no gas fee, so the wallet step says so instead of naming a token that does not exist. */
+function gasTokenFor(chain: string): string | null {
+  if (chain === 'Proton') return null;
   const known: Record<string, string> = {
     Ethereum: 'ETH', Base: 'ETH', Arbitrum: 'ETH', Optimism: 'ETH', Ink: 'ETH', Unichain: 'ETH', Linea: 'ETH', Scroll: 'ETH', 'zkSync Era': 'ETH', 'World Chain': 'ETH',
     Solana: 'SOL', Binance: 'BNB', Bitcoin: 'BTC', Avalanche: 'AVAX', Polygon: 'POL', Sui: 'SUI', Aptos: 'APT', Tron: 'TRX', 'Hyperliquid L1': 'HYPE',
     Stellar: 'XLM', Flare: 'FLR', Berachain: 'BERA', Mantle: 'MNT', Sonic: 'S', Sei: 'SEI', Celo: 'CELO', Ronin: 'RON', Bittensor: 'TAO', Algorand: 'ALGO', Ripple: 'XRP', Starknet: 'STRK', Monad: 'MON',
+    Arc: 'USDC', Provenance: 'HASH', Plasma: 'XPL', 'Robinhood Chain': 'ETH', RISE: 'ETH', Noble: 'USDC', Manta: 'ETH', Mezo: 'BTC', XION: 'XION',
+    'Reya Network': 'ETH', Tempo: 'a USD stablecoin', Stable: 'USDT0', Morph: 'ETH', RSK: 'RBTC', Klaytn: 'KAIA', Kava: 'KAVA', Canton: 'CC',
+    'Bifrost Network': 'BFC', Fluent: 'BLEND', Stacks: 'STX', 'Plume Mainnet': 'PLUME',
   };
   return known[chain] ?? `${chain}'s native gas token`;
 }
@@ -674,7 +691,14 @@ function exitFor(p: SnapshotProtocol): string {
  * 4 names the protocol too, so no step is the same string on two rows: steps
  * 1 and 4 used to read identically for every protocol on the same chain
  * (one step-1 string covered 55 rows), which made the plan look templated
- * even where the action differed. Step 3 keeps one wallet per
+ * even where the action differed. The gas token is the chain's own, checked
+ * against its documentation, never guessed: 30 of the 34 rows whose first
+ * chain was not in the map now name a verified token, and the one chain
+ * that charges no gas at all (Proton) says so instead of naming a token
+ * that does not exist, and its cost lines say the same, so no step prices
+ * gas that does not exist. Four chains stay on the generic wording because no
+ * public record settles their gas token (BSquared, Pharos, Strato, Qubic).
+ * Step 3 keeps one wallet per
  * protocol: airdrop filters punish wallets that farm dozens of protocols
  * from one address, so the farm wallet for this protocol is used for this
  * protocol alone. Steps 2, 3, 5, 6 and 7 are shaped by the category: the
@@ -688,21 +712,26 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const capital = capitalFor(p);
   const hold = holdDaysFor(age);
   const action = actionFor(p, capital, chain);
+  const gas = gasTokenFor(chain);
+  const noGas = gas === null;
+  const walletStep = noGas
+    ? `Open a fresh wallet for ${p.name} on ${chain}, where transactions carry no gas fee, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`
+    : `Open a fresh wallet for ${p.name}, fund it with ${gas} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`;
   const others = p.chains.length > 1 ? ` Repeat the deposit on a second chain, ${p.chains[1]}, so the activity is not tied to one network.` : ` Use the protocol on ${chain} only, and do not split the position across networks it does not list.`;
   return [
     {
-      text: `Open a fresh wallet for ${p.name}, fund it with ${gasTokenFor(chain)} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`,
-      cost: 'under $3 of gas for the first transaction',
+      text: walletStep,
+      cost: noGas ? 'nothing: transactions carry no gas fee' : 'under $3 of gas for the first transaction',
       time: '5 minutes',
     },
     {
       text: action,
-      cost: `$${capital} of capital and about $${capital >= 250 ? 8 : 4} of gas`,
+      cost: noGas ? `$${capital} of capital, and no gas fee` : `$${capital} of capital and about $${capital >= 250 ? 8 : 4} of gas`,
       time: '15 minutes to set up',
     },
     {
       text: `Use this wallet for ${p.name} alone, and ${weeklyActionFor(p).charAt(0).toLowerCase()}${weeklyActionFor(p).slice(1)}`,
-      cost: 'about $2 of gas a week',
+      cost: noGas ? 'nothing: transactions carry no gas fee' : 'about $2 of gas a week',
       time: '10 minutes a week',
     },
     {
@@ -722,7 +751,7 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
     },
     {
       text: exitFor(p),
-      cost: 'about $3 of gas to claim',
+      cost: noGas ? 'nothing: transactions carry no gas fee' : 'about $3 of gas to claim',
       time: '15 minutes to claim',
     },
   ];

@@ -6,6 +6,33 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-13)
+
+Radar-13 keeps radar-12's formula and every implied value, and fixes two
+things a reader could catch it on. First, the farm plans: 34 rows opened
+their wallet step with a placeholder, "fund it with X's native gas token",
+because their first chain was not in the gas-token map, and two of those
+placeholders were wrong, not vague: Tempo has no native gas token at all
+(fees are paid in any supported USD stablecoin) and Proton charges no gas
+fee at all. The map now names a token the chain's own documentation
+verifies for 21 more chains (Arc's USDC, Plasma's XPL, Stable's USDT0,
+Provenance's HASH, Noble's USDC, ETH on Manta Pacific, Reya, Morph, RISE
+and Robinhood Chain, BTC on Mezo, XION, RBTC on RSK, KAVA, CC on Canton,
+BFC on Bifrost Network, BLEND on Fluent, STX on Stacks, PLUME on Plume
+Mainnet, and KAIA on Klaytn, KLAY having migrated to KAIA at the Kaia
+merger), so 30 of the 34 rows name a real token, Tempo names a USD
+stablecoin, and Proton says transactions carry no gas fee. Four chains
+stay on the generic wording because no public record settles their gas
+token: BSquared (B2 on its hub, BTC on its rollup), Pharos (PHRS on its
+testnet, its mainnet token unclear), Strato and Qubic. Second, the page
+took any hash at face value: a link with an unknown category, chain, tab
+or protocol opened an empty board, or the wrong tab, while the controls
+said "All categories". The hash is now read against the values the board
+knows, and a value it does not know is ignored, so a stale or typed link
+opens the board instead of an empty one. The board is unchanged: same 195
+rows, same ranks, same implied values; only the farm-plan wording moves,
+on 30 rows, and the screenshots are retaken for the radar-13 label.
+
 ## The model (radar-12)
 
 Radar-12 keeps radar-11's formula and every implied value, and fixes two
@@ -161,8 +188,14 @@ one or two protocols without it. Live-token protocols are set aside and
 shown with their market caps. Farm plans are seven steps each, derived from
 the protocol's category, chains, TVL and age, with a cost and a time on every
 step, one wallet per protocol so the farm does not look like a Sybil cluster.
-The wallet step names the gas token of the protocol's own first chain, and
-the weekly action, the number worth logging, the page that would carry a
+The wallet step names the gas token of the protocol's own first chain,
+checked against the chain's own documentation, never guessed: 30 of the 34
+rows whose first chain was not a household name now name a verified token,
+Tempo names a USD stablecoin because it has no native gas token, and Proton
+says transactions carry no gas fee because it charges none. Four chains stay
+on the generic wording because no public record settles their gas token
+(BSquared, Pharos, Strato, Qubic). The weekly action, the number worth
+logging, the page that would carry a
 claim and the way the position unwinds are all shaped by the category, so a
 lender, a pool and a vault do not farm the same way. Every one of the 32
 categories on the board has its own shape for each of those steps, so all
