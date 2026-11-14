@@ -6,7 +6,26 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
-## The model (radar-10)
+## The model (radar-11)
+
+Radar-11 keeps radar-10's formula and every implied value, and fixes one
+place where the dashboard did not follow the rule radar-10 stated. The
+comparables, the live-priced count and the ranking all applied the same
+excluded-category rule, but the Live token view and the detail views' peer
+samples still used the older exchange-only filter, so the Live view showed
+six bridge and liquid-staking tokens (Lido, Mantle Bridge, Polygon Bridge,
+Starknet Bridge, Portal and Merlin's Seal) with market-cap-to-TVL ratios
+the model refuses to price from, under a caption saying the ratios shown
+are the comparables. The Live view now draws from the same population the
+comparables are priced from: the 24 biggest live-token protocols by market
+cap in the categories the board ranks, all with a market cap above zero,
+so every ratio it shows is one of the 90. Six priced rows take the six
+places (Astar dApps Staking, Re, sDAI, Hydration DEX, Api3 and Veranta),
+and Api3, the Risk Curators peer the detail view names, now appears in the
+Live view as well as in the peer sample. The peer samples drop the five
+excluded-category keys (Bridge, Canonical Bridge, Cross Chain Bridge,
+Liquid Staking, Liquid Restaking) no ranked row could ever use. The board
+itself is unchanged: same 195 rows, same ranks, same implied values.
 
 Radar-10 keeps radar-9's formula and changes one thing about what prices it:
 the market median no longer counts the 29 bridge, liquid-staking, liquid-restaking
@@ -116,9 +135,10 @@ names, 1 stablecoin wrapper), so the reader can see what was set aside and
 why. One watchlist protocol is ranked although the early-radar wrapper rule
 would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 28, because a
 watchlist slug is always ranked. The Live token view shows the 24 biggest
-live-token protocols by market cap, of 416 that record a token; the
-comparables are priced from the 90 of those with a market cap above zero,
-exchange, bridge, liquid-staking, liquid-restaking and wrapper tokens left out. The
+live-token protocols by market cap in the categories the board ranks, of 416 that record a token; the
+comparables are priced from the 90 of those with a market cap above zero —
+the same population, exchange, bridge, liquid-staking, liquid-restaking and
+wrapper tokens left out of both. The
 shrinkage is evidence-driven, not a guessed weight: 32 of the 41 categories
 priced have fewer than three live peers, so most multiples would rest on
 one or two protocols without it. Live-token protocols are set aside and

@@ -1,4 +1,4 @@
-// Token Radar's model (radar-10): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-11): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-10';
+export const MODEL_VERSION = 'radar-11';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -745,7 +745,15 @@ function toLiveRow(p: SnapshotProtocol): LiveRow {
 /** The live-token protocols, by market cap, for the dashboard's Live token view. */
 export function liveRows(snapshot: Snapshot): LiveRow[] {
   return snapshot.protocols
-    .filter((p) => !isPreToken(p) && p.category !== 'CEX')
+    // The same population the comparables are priced from, not the wider
+    // live set: a bridge, liquid-staking or wrapper token's market cap
+    // prices a business other than the TVL the snapshot records for it, so
+    // it is left out of this view as well as out of the comparables, and
+    // every ratio the Live token view shows is one of the 90 the model
+    // prices the board with. An exchange token is left out on the same
+    // ground. A protocol that records a token but no market cap has no
+    // market cap to rank by, so it never appears here either.
+    .filter((p) => !isPreToken(p) && !isExcludedCategory(p) && p.mcap_usd !== null && p.mcap_usd > 0)
     .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
     .slice(0, LIVE_ROWS)
     .map(toLiveRow);
@@ -762,10 +770,14 @@ export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
   const byCategory = new Map<string, LiveRow[]>();
   const rows = snapshot.protocols
     // The same population the comparables are priced from: a live token with
-    // a market cap above zero that the snapshot records, and not an exchange
-    // token. A protocol that records a token but no market cap has no ratio
-    // to show, so it never appears as a peer; a $0 market cap is the same.
-    .filter((p) => !isPreToken(p) && p.category !== 'CEX' && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0)
+    // a market cap above zero that the snapshot records, in a category the
+    // board ranks. Bridge, liquid-staking, liquid-restaking and wrapper
+    // tokens are left out here too, not only exchange tokens: their market
+    // caps price a business other than the TVL, so they are never shown as
+    // a peer for a row the model prices. A protocol that records a token but
+    // no market cap has no ratio to show, so it never appears as a peer; a
+    // $0 market cap is the same.
+    .filter((p) => !isPreToken(p) && !isExcludedCategory(p) && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0)
     .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
     .map(toLiveRow);
   for (const r of rows) {

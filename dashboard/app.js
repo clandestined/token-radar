@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-10). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-11). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -385,7 +385,7 @@
     return el('div', { class: 'panel' },
       el('div', { class: 'table-wrap' },
         el('table', null,
-          el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and the market-cap-to-TVL ratios of the ' + DATA.live_priced + ' with a market cap are the comparables the model prices the board with.' }),
+          el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap in the categories the board ranks, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and every ratio this view shows is one of the ' + DATA.live_priced + ' with a market cap that are the comparables the model prices the board with. Bridge, liquid-staking and wrapper tokens are left out here too: their market caps price a business other than the TVL, so they never appear as comparables.' }),
           el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Protocol' }), liveSortHeader('tvl', 'TVL'), liveSortHeader('growth', '7d'), liveSortHeader('mcap', 'Market cap'), liveSortHeader('multiple', 'Mcap / TVL'), el('th', { scope: 'col', text: 'Token' }))),
           tbody
         )
