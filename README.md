@@ -6,6 +6,43 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-23)
+
+Radar-23 keeps radar-22's formula and every implied value, and fixes
+three places where the entry's own words disagreed with its own
+numbers — all found by rebuilding radar-21 and diffing the boards,
+and by recounting the comparables from the snapshot. First, radar-22
+undercounted its own change: its README said the article fix moved
+10 rows and 13 rows in all, but the radar-21 to radar-22 board diff
+moves 16 rows — the three corrections plus thirteen article rows
+(Upshift, Armitage, UltraYield Curator, infiniFi, August Digital,
+Avant avUSD, Arrakis, IPOR Fusion, Anthias Labs, alphagrowth, Agua,
+UltraYield Vaults and Aftermath afLP) — so the counts now say
+thirteen and sixteen, in the README and in the code's own comment.
+Second, the model panel said seven single-peer categories priced at
+one identical multiple under the old arithmetic shrink, but the
+comparables table holds twelve single-peer categories; only the seven
+whose raw median sits above the cap — Chain, Collateral Management,
+Decentralized AI, NFT Marketplace, Options, Prediction Market and
+Risk Curators — collapsed to that one number, and the five cheaper
+ones never did, so the panel now says seven rich single-peer
+categories, the wording the model's own comment already used.
+Third, the model panel's correction history narrated three different
+rounds as "the last round" and "this round" twice, so a reader could
+not tell which round added which plans; the three groups are now
+labelled radar-20, radar-21 and radar-22. The three radar-22
+corrections themselves were re-verified against their sources:
+Native Credit Pool is a single-sided supply pool for market makers
+to borrow from, per DefiLlama's own description, with borrow
+interest as its revenue; BounceBit Prime is for institutional and
+accredited investors with KYC/AML, custodial management and
+transparent reporting, its BENJI fund for qualified investors; and
+Figure's own Prime page lists a YLDS HELOC pool that takes YLDS
+and USD/USDC/USDT margin pools, so USDC lends into a margin pool.
+The board is unchanged: same 195 rows, same ranks, same implied
+values; only prose moves, and the screenshots are retaken for the
+radar-23 label.
+
 ## The model (radar-22)
 
 Radar-22 keeps radar-21's formula and every implied value, and fixes
@@ -32,7 +69,7 @@ radar-21, is refined: Figure's own Prime page lists a YLDS HELOC
 pool, which takes YLDS (deposit USD, buy YLDS, lend into the pool),
 and USD/USDC/USDT margin pools — so USDC lends into a margin pool,
 not the HELOC pool, and its plan now says so. Fourth, the article:
-ten rows read "into a Upshift vault", "a Armitage", "a Arrakis" and
+thirteen rows read "into a Upshift vault", "a Armitage", "a Arrakis" and
 the like, because the shapes wrote "a" before every protocol name;
 the shapes now write "an" before a vowel-initial name. Two open
 items are settled with no fix: the Monolith "ChainSecurity audit,
@@ -42,8 +79,8 @@ review of June 2025 is a separate, earlier audit — and Loopscale is
 not in the snapshot at all, so its fixed-term loans need no plan.
 Twenty-six of 195 plans are now corrected in the one table. The
 board is unchanged: same 195 rows, same ranks, same implied values;
-only farm plans move, on 13 rows (3 corrections plus the article on
-10 rows), and the screenshots are retaken for the radar-22 label.
+only farm plans move, on 16 rows (3 corrections plus the article on
+13 rows), and the screenshots are retaken for the radar-22 label.
 
 ## The model (radar-21)
 

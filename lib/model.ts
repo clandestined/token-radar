@@ -1,4 +1,4 @@
-// Token Radar's model (radar-22): one sealed snapshot in, one ranked board out.
+// Token Radar's model (radar-23): one sealed snapshot in, one ranked board out.
 //
 // The board covers every slug in the snapshot's watchlist (the floor, never a
 // ceiling) plus every other rankable pre-token protocol the watchlist leaves
@@ -122,7 +122,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-22';
+export const MODEL_VERSION = 'radar-23';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -505,7 +505,7 @@ function holdDaysFor(age: number | null): number {
   return 30;
 }
 
-/** "a" or "an" before a protocol name: the shapes wrote "a" before every name, so ten rows read "into a Upshift vault", "a Armitage", "a Arrakis" and the like. */
+/** "a" or "an" before a protocol name: the shapes wrote "a" before every name, so thirteen rows read "into a Upshift vault", "a Armitage", "a Arrakis" and the like. */
 function articleFor(name: string): string {
   return /^[AEIOU]/i.test(name) ? 'an' : 'a';
 }
