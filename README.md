@@ -6,6 +6,52 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-26)
+
+Radar-26 replaces the model itself. The flat median multiple is gone:
+the multiple is now a fitted size curve, log(mcap) = 8.8089 + 0.4142 x
+log(TVL), fitted by ordinary least squares on the 90 comparables, so a
+$5M protocol prices near 0.80x and a $2.76B one near 0.02x. The curve was
+kept only because it wins out of sample on the live tokens themselves:
+leave-one-out error x3.28 against the flat median's x5.18, time-split
+x2.15 against x5.01 (fitted on tokens listed before 2024-07-15, tested on
+those listed after), 5-fold x3.31 against x5.26. The flat median's size
+bias is the reason: held out one at a time it underpredicts the smallest
+third of live tokens by a factor of 3.3 and overpredicts the largest
+third by a factor of 2.6; the curve's held-out bias is -0.38 / -0.07 /
+-0.13 in log terms across the small, middle and large thirds. The
+out-of-sample test is published on the board itself, in the model panel
+and in the dashboard's data, alongside the fit. Three things were tested
+and dropped on the same splits: shrunk category offsets (worse at every
+shrinkage weight), winsorizing the comparables, and fitted growth/age
+coefficients. A geometric median of ratios was tested too (x4.94 held
+out, better than the arithmetic median's x5.18) and superseded by the
+curve. The old [0.05, 0.80] band would have priced the whole top of the
+board at its floor, so the band widened to [0.01, 1.00] as a guardrail
+that never binds on this snapshot; the market median no longer exists as
+a model input. Every row carries its uncertainty: the curve refitted 200
+times on bootstrap resamples of the 90 comparables gives each row a
+P10-P90 implied value and a rank range, shown in the detail view, and
+the page refits the curve from the 90 pairs and checks it against the
+fitted values. The board is substantially reordered by the change: total
+implied value falls from $5,786,663,094 to $1,647,174,217, the median row
+rises from $4,473,920 to $6,233,165, 188 of the 195 rows change rank by
+at most 84 places, and the top three are now Steakhouse Financial
+$49,327,013, Sentora Curator $47,393,443 and Gauntlet $40,968,421 — the
+old model priced the biggest TVLs at the market median multiple, the
+curve prices them cheap per dollar. The row count is unchanged at 195:
+194 clean plus the Saturn watchlist carve-out, now at rank 29; the 198
+figure does not reproduce under the house rule (the two extra protocols
+are Circle Gateway, a bridge, and USDCx, a stablecoin wrapper of a token
+that already trades), and the comp set of 90 is already one-per-ticker
+(no duplicate symbols or CoinGecko ids). Farm plans are byte-identical;
+the screenshots are retaken for the radar-26 label and the detail view
+now shows the size multiple and the bootstrap range. One caveat the
+board states plainly: the fitted slope is noisy across halves (0.466 on
+older-listed tokens, 0.098 on newer), which is why the bootstrap ranges
+are shown per row instead of a single point estimate. An out-of-sample
+win on the snapshot's own tokens is evidence, not a guaranteed prize.
+
 ## The model (radar-25)
 
 Radar-25 keeps radar-24's formula and every implied value, and finishes
@@ -528,38 +574,39 @@ cap bounds the outlier and the raw stays visible.
 One function scores every row, from the snapshot's own figures only:
 
 ```
-multiple = exp((peers x ln(categoryMedian) + 3 x ln(marketMedian)) / (peers + 3)),
-  clamped to [0.05, 0.80]; categoryMedian is the median market-cap-to-TVL
-  ratio of the live-token protocols in the same category, marketMedian the
-  median over the live-token protocols in the categories the board ranks
-implied = round( tvl_usd x multiple
+multiple = exp(8.8089) x TVL^(-0.5858), clamped to [0.01, 1.00]:
+  log(mcap) = 8.8089 + 0.4142 x log(TVL), fitted by ordinary least
+  squares on the 90 comparables (live-token protocols with a market
+  cap above zero in the categories the board ranks); the fit is done
+  at run time, never hardcoded
+implied = max(1, round( tvl_usd x multiple
   x (1 + clamp(change_7d, -40, 80) / 100 x 0.6)
   x (0.70 + min(age_days, 1095) / 1095 x 0.30)
   x (1 + 0.02 x min(chains - 1, 4))
-  x quality )
+  x quality ))
 ```
 
-The comparable is shrunk toward the market median in log space with a
-weight of 3 peers: ratios multiply, so the shrinkage averages logarithms and
-the raw median is never clamped before shrinking. The old arithmetic shrink
-clamped the raw median to [0.05, 0.80] first, which erased every difference
-between rich single-peer categories: Chain (3.03x), Collateral Management
-(12.16x), Decentralized AI (2.06x), NFT Marketplace (2.00x), Options
-(1.51x), Prediction Market (400.20x) and Risk Curators (2.97x) all priced at
-one identical 0.3845x, 40 board rows on a single number. In log space they
-price at 0.4442x, 0.6289x, 0.4035x, 0.4006x, 0.3736x, the 0.80 cap and
-0.4423x: each from its own peer, still pulled most of the way to the market
-by the 3-peer weight, and still capped. The same clamp erased the cheap end
-too: a category whose peers trade at 0.002x was lifted to 0.1676x by the
-floor before shrinking, so Staking Pool (SSV at 0.00x on $10.2B of TVL)
-priced as if it were a mid-market category; in log space it prices at the
-0.05 floor. A single peer still never sets its own price: Risk Curators'
-2.97x peer pulls the multiple to 0.4423x, not to 2.97x, and an extreme peer
-still lands at the cap, which is the model's bound. On this snapshot the
-Risk Curators median comes from a single live peer (Api3, at 2.97x mcap/TVL),
-so without shrinkage all 34 Risk Curator rows would price at the 0.80 cap;
-shrunk in log space, they price at 0.4423x. The multiple is rounded to four decimals before
-it is used, so the dashboard's recompute of a row matches board.json exactly.
+The multiple is no longer a median of ratios. Market cap grows slower
+than TVL (the fitted slope is 0.41, well below 1), so a flat multiple
+misprices by size: held out one at a time, the flat median underpredicts
+the smallest third of live tokens by a factor of 3.3 and overpredicts the
+largest third by a factor of 2.6. The curve removes that bias: its
+held-out error is x3.28 against the flat median's x5.18, x2.15 against
+x5.01 on a time split (fitted on tokens listed before 2024-07-15, tested
+on those listed after), and x3.31 against x5.26 on 5-fold splits. The
+size bias falls from -1.20 / -0.35 / +0.95 in log terms across the small,
+middle and large thirds to -0.38 / -0.07 / -0.13. The band [0.01, 1.00]
+is a guardrail, not a price: on this snapshot it never binds (the curve
+runs 0.7969x at $5M of TVL to 0.0197x at $2.76B), and the old [0.05,
+0.80] band would have priced the whole top of the board at its floor.
+There is no market median in the model any more, and no category term:
+shrunk category offsets were tested the same way out of sample and make
+the held-out error worse at every shrinkage weight, so the curve carries
+none; a category's live peers are shown in each detail view as context,
+not as the price. A geometric median of ratios was tested too (x4.94
+held out, better than the arithmetic median's x5.18) and superseded by
+the curve. The multiple is rounded to four decimals before it is used,
+so the dashboard's recompute of a row matches board.json exactly.
 Age is days since first listing, the record of how long a protocol has run
 with no token. `quality` is 0.97 when seven-day growth is unreported and 1.00
 otherwise: a protocol whose growth the snapshot does not carry is valued as
@@ -577,15 +624,14 @@ not rank are counted by exclusion on the dashboard (52 exchanges, 39 bridges,
 38 liquid staking / restaking products, 11 versioned pools, 6 wrapped / staked
 names, 1 stablecoin wrapper), so the reader can see what was set aside and
 why. One watchlist protocol is ranked although the early-radar wrapper rule
-would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 28, because a
+would leave it out: Saturn, a Stablecoin Wrapper, sits at rank 29, because a
 watchlist slug is always ranked. The Live token view shows the 24 biggest
 live-token protocols by market cap in the categories the board ranks, of 416 that record a token; the
 comparables are priced from the 90 of those with a market cap above zero —
 the same population, exchange, bridge, liquid-staking, liquid-restaking and
-wrapper tokens left out of both. The
-shrinkage is evidence-driven, not a guessed weight: 32 of the 41 categories
-priced have fewer than three live peers, so most multiples would rest on
-one or two protocols without it. Live-token protocols are set aside and
+wrapper tokens left out of both. The curve needs no category counts: it is
+fitted on all 90 comparables at once, so a category with one live peer
+cannot set its own price the way a category median could. Live-token protocols are set aside and
 shown with their market caps. Farm plans are seven steps each, derived from
 the protocol's category, chains, TVL and age, with a cost and a time on every
 step, one wallet per protocol so the farm does not look like a Sybil cluster.

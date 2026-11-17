@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-25). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-26). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -37,7 +37,24 @@
   // figures and checks the number board.json carries, so the page's code and
   // the board's data are visibly the same arithmetic. A row whose seven-day
   // growth the snapshot does not carry is valued as flat and discounted a
-  // little for the missing evidence, never as if it were known.
+  // little for the missing evidence, never as if it were known. The
+  // multiple is the fitted size curve at the row's TVL, rounded to four
+  // decimals in the board; the page refits the curve from the 90
+  // comparables in DATA.comps and checks it matches DATA.curve.
+  function fitCurve(pairs) {
+    var n = pairs.length, mx = 0, my = 0, i;
+    for (i = 0; i < n; i++) { mx += Math.log(pairs[i][0]); my += Math.log(pairs[i][1]); }
+    mx /= n; my /= n;
+    var sxy = 0, sxx = 0;
+    for (i = 0; i < n; i++) {
+      var dx = Math.log(pairs[i][0]) - mx;
+      sxy += dx * (Math.log(pairs[i][1]) - my);
+      sxx += dx * dx;
+    }
+    var slope = sxx === 0 ? 1 : sxy / sxx;
+    return { intercept: my - slope * mx, slope: slope, n: n };
+  }
+  var REFIT = DATA.comps ? fitCurve(DATA.comps) : null;
   function impliedOf(row, model) {
     var growthKnown = row.change_7d !== null && row.change_7d !== undefined && isFinite(row.change_7d);
     var growth = Math.min(model.growth_cap, Math.max(model.growth_floor, growthKnown ? row.change_7d : 0));
@@ -46,19 +63,20 @@
     var maturity = model.maturity_floor + (Math.min(Math.max(age, 0), model.maturity_days) / model.maturity_days) * model.maturity_range;
     var breadth = 1 + model.breadth_step * Math.min(Math.max((row.chains || []).length - 1, 0), model.breadth_max_chains);
     var quality = growthKnown ? 1 : model.unknown_growth_discount;
-    return Math.max(1, Math.round(row.tvl_usd * row.category_multiple * growthMult * maturity * breadth * quality));
+    return Math.max(1, Math.round(row.tvl_usd * row.curve_multiple * growthMult * maturity * breadth * quality));
   }
   // One sentence saying why this row sits where it does, built from the
-  // same drivers the model scored: size, momentum, seasoning, category and
-  // the quality of the evidence. It is a reading of the numbers, not a claim.
-  // The bands read the numbers they describe: a 5-10% weekly move is not
-  // flat (43 rows read that way), 300-364 days is not half a year (9 rows),
-  // and a multiple below the market median is not mid-range (18 rows at
-  // 0.2013-0.217x against a 0.2343x market). The boundaries are strict
+  // same drivers the model scored: size, momentum, seasoning, the size
+  // curve and the quality of the evidence. It is a reading of the numbers,
+  // not a claim. The bands read the numbers they describe: a 5-10% weekly
+  // move is not flat (43 rows read that way), 300-364 days is not half a
+  // year (9 rows), and the multiple bands are the curve's own: 51 rows sit
+  // at 0.5x or above (small TVLs price high per dollar) and 25 at 0.1x or
+  // below (large TVLs price low per dollar). The boundaries are strict
   // where the words are: exactly 730 days is two years, not two-plus, and
   // exactly 365 days is a year, not over one — radar-24 changed the
   // comparisons to strict but never wrote those two labels, so Goose read
-  // "over a year" and Yuzu Money "nearly a year" until this round.
+  // "over a year" and Yuzu Money "nearly a year" until radar-25.
   function whyHere(row) {
     var parts = [];
     if (row.tvl_usd >= 1e9) parts.push('a very large TVL');
@@ -79,12 +97,11 @@
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days >= 180) parts.push('half a year running with no token');
     else if (row.age_days !== null && row.age_days !== undefined && row.age_days < 180) parts.push('a young protocol, seasoned only briefly');
     else parts.push('age unreported, so it is scored as a year old');
-    if (row.category_multiple >= DATA.model.multiple_cap) parts.push('a category multiple at the model cap');
-    else if (row.category_multiple <= DATA.model.multiple_floor) parts.push('a category multiple at the model floor');
-    else if (row.category_multiple >= 0.5) parts.push('a rich category multiple');
-    else if (row.category_multiple <= 0.1) parts.push('a cheap category multiple');
-    else if (row.category_multiple >= DATA.market_multiple) parts.push('a mid-range category multiple');
-    else parts.push('a below-market category multiple');
+    if (row.curve_multiple >= DATA.model.multiple_cap) parts.push('a size multiple at the model cap');
+    else if (row.curve_multiple <= DATA.model.multiple_floor) parts.push('a size multiple at the model floor');
+    else if (row.curve_multiple >= 0.5) parts.push('a rich size multiple: a small TVL prices high per dollar');
+    else if (row.curve_multiple <= 0.1) parts.push('a cheap size multiple: a large TVL prices low per dollar');
+    else parts.push('a mid-range size multiple');
     if ((row.chains || []).length >= 3) parts.push('TVL spread across several chains');
     return 'Why rank ' + row.rank + ': ' + parts.join(', ') + '.';
   }
@@ -180,7 +197,7 @@
       else if (key === 'tvl') { av = a.tvl_usd; bv = b.tvl_usd; }
       else if (key === 'growth') { av = a.change_7d === null ? 0 : a.change_7d; bv = b.change_7d === null ? 0 : b.change_7d; }
       else if (key === 'age') { av = a.age_days === null ? DATA.model.unknown_age_days : a.age_days; bv = b.age_days === null ? DATA.model.unknown_age_days : b.age_days; }
-      else if (key === 'multiple') { av = a.category_multiple; bv = b.category_multiple; }
+      else if (key === 'multiple') { av = a.curve_multiple; bv = b.curve_multiple; }
       else { av = a.implied_value_usd; bv = b.implied_value_usd; }
       if (av < bv) return -state.dir;
       if (av > bv) return state.dir;
@@ -375,7 +392,7 @@
         el('td', { class: 'num', text: fmtUsd(r.tvl_usd) }),
         el('td', { class: 'num ' + growthClass, text: growth }),
         el('td', { class: 'num', text: fmtAge(r.age_days) }),
-        el('td', { class: 'num', text: r.category_multiple.toFixed(4) + 'x' }),
+        el('td', { class: 'num', text: r.curve_multiple.toFixed(4) + 'x' }),
         el('td', null, el('div', { class: 'implied' },
           el('div', { class: 'bar', 'aria-hidden': 'true' }, el('i', { style: 'width:' + Math.max(3, Math.round((r.implied_value_usd / max) * 100)) + '%' })),
           el('span', { class: 'num', text: fmtUsd(r.implied_value_usd) })
@@ -394,7 +411,7 @@
             sortHeader('tvl', 'TVL'),
             sortHeader('growth', '7d'),
             sortHeader('age', 'Age'),
-            sortHeader('multiple', 'Category x'),
+            sortHeader('multiple', 'Size x'),
             sortHeader('implied', 'Implied value'),
             el('th', { scope: 'col', text: 'Scope' })
           )),
@@ -435,7 +452,7 @@
     return el('div', { class: 'panel' },
       el('div', { class: 'table-wrap' },
         el('table', null,
-          el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap in the categories the board ranks, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and every ratio this view shows is one of the ' + DATA.live_priced + ' with a market cap that are the comparables the model prices the board with. Bridge, liquid-staking and wrapper tokens are left out here too: their market caps price a business other than the TVL, so they never appear as comparables.' }),
+          el('caption', { class: 'sub', text: 'Token live: the ' + DATA.live.length + ' biggest live-token protocols by market cap in the categories the board ranks, of ' + DATA.live_total + ' that record a token. These already trade, so their market cap is a fact, not a model. They are set aside from the pre-token ranking, and the ' + DATA.live_priced + ' of them with a market cap are the comparables the size curve is fitted on. Bridge, liquid-staking and wrapper tokens are left out here too: their market caps price a business other than the TVL, so they never enter the fit.' }),
           el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Status' }), el('th', { scope: 'col', text: 'Protocol' }), liveSortHeader('tvl', 'TVL'), liveSortHeader('growth', '7d'), liveSortHeader('mcap', 'Market cap'), liveSortHeader('multiple', 'Mcap / TVL'), el('th', { scope: 'col', text: 'Token' }))),
           tbody
         )
@@ -445,57 +462,70 @@
 
   function modelPanel() {
     var m = DATA.model;
-    var thin = Object.keys(DATA.peers).filter(function (k) { return DATA.peers[k] < 3; }).length;
-    var thinTotal = Object.keys(DATA.peers).length;
+    var o = DATA.oos;
+    var c = DATA.curve;
+    var refitText = REFIT && Math.abs(REFIT.intercept - c.intercept) < 0.001 && Math.abs(REFIT.slope - c.slope) < 0.001
+      ? ' The page refits the curve from the 90 pairs itself and gets the same fit: log(mcap) = ' + REFIT.intercept.toFixed(2) + ' + ' + REFIT.slope.toFixed(2) + ' x log(TVL).'
+      : ' The page refits the curve from the 90 pairs itself; its fit differs from the board\'s, so the data would be stale.';
     var excludedText = Object.keys(DATA.excluded.by_reason).sort().map(function (k) { var n = DATA.excluded.by_reason[k]; var label = k === 'liquid staking / restaking' ? 'liquid staking / restaking products' : k + (n === 1 ? '' : 's'); return n + ' ' + label; }).join(', ');
     var saturn = null;
     for (var i = 0; i < DATA.rows.length; i++) if (DATA.rows[i].slug === 'saturn') saturn = DATA.rows[i];
     var saturnText = saturn ? ' One watchlist protocol is ranked although the wrapper rule would leave it out: Saturn, a Stablecoin Wrapper, sits at rank ' + saturn.rank + ' because the watchlist is the floor and a watchlist slug is always ranked.' : '';
     return el('section', { class: 'panel model' },
       el('h2', { text: 'How implied value is computed' }),
-      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. The scoring never special-cases a protocol name, and no row is hand-picked. The comparable is the median market-cap-to-TVL ratio of the live-token protocols in the same category, computed from this snapshot at run time, then shrunk toward the market median in log space with a weight of ' + m.shrink_peers + ' peers: ratios multiply, so the shrinkage averages logarithms, and the raw median is never clamped before shrinking. A category with one live peer never prices at its peer\'s ratio, and a category with no live peer uses the market median outright.' }),
-      el('p', { class: 'sub', text: 'The shrinkage is not a guess at a weight: ' + thin + ' of the ' + thinTotal + ' categories priced here have fewer than three live peers, so most multiples would rest on one or two protocols without it. Shrinking in log space matters because the old arithmetic shrink clamped the raw median first: seven rich single-peer categories, from Options at 1.51x to Prediction Market at 400.20x, all priced at one identical multiple, and a category whose peers trade at 0.002x was lifted to the market by the floor. Now each prices from its own peer, still pulled most of the way to the market, and still capped. With no shrinkage the Risk Curators rows would all price at the 0.80 cap on a single peer; shrunk, they price at ' + (DATA.multiples['Risk Curators'] === undefined ? 'the market median' : DATA.multiples['Risk Curators'].toFixed(4) + 'x') + '.' }),
+      el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. The scoring never special-cases a protocol name, and no row is hand-picked. The multiple is a fitted size curve, not a flat median: log(market cap) = ' + c.intercept.toFixed(2) + ' + ' + c.slope.toFixed(2) + ' x log(TVL), fitted by least squares on the ' + c.comps + ' live-token protocols whose market cap prices the same kind of business, and a protocol\'s multiple is exp(' + c.intercept.toFixed(2) + ') x TVL^(' + (c.slope - 1).toFixed(2) + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap.toFixed(2) + ']. The band is a guardrail, not a price: on this snapshot it never binds — the curve runs 0.80x at $5M of TVL to 0.02x at $2.76B.' + refitText }),
+      el('p', { class: 'sub', text: 'The curve is tested out of sample, on the live tokens themselves, against the flat median multiple it replaces. Held out one at a time, the curve misses by a factor of x' + o.loocv_curve.toFixed(2) + ' against the median\'s x' + o.loocv_median.toFixed(2) + '; fitted on tokens listed before ' + o.time_split_cut + ' and tested on those listed after, x' + o.time_split_curve.toFixed(2) + ' against x' + o.time_split_median.toFixed(2) + '; in 5-fold splits, x' + o.five_fold_curve.toFixed(2) + ' against x' + o.five_fold_median.toFixed(2) + '. The flat median misprices by size: its held-out errors are ' + o.loocv_bias_median[0] + ', ' + o.loocv_bias_median[1] + ' and ' + o.loocv_bias_median[2] + ' in log terms across the small, middle and large thirds — it underpredicts the smallest third by a factor of ' + Math.exp(-o.loocv_bias_median[0]).toFixed(1) + ' and overpredicts the largest by ' + Math.exp(o.loocv_bias_median[2]).toFixed(1) + ' — while the curve\'s are ' + o.loocv_bias_curve[0] + ', ' + o.loocv_bias_curve[1] + ' and ' + o.loocv_bias_curve[2] + '. Category offsets were tested the same way and do not help: they make the held-out error worse at every shrinkage weight, so the curve carries no category term. Each row also carries its uncertainty: the curve refitted 200 times on bootstrap resamples of the 90 comparables, and the detail view shows the row\'s P10-P90 implied value and rank over those refits.' }),
       el('p', { class: 'sub', text: 'Farm plans follow the protocol\u2019s category — except where the snapshot\u2019s own record mislabels the protocol, and then the plan follows the protocol\u2019s own documentation instead. Twenty-six plans are corrected that way, in one table in the code: Hive Protocol is B\u00b2 Hive, a BTC staking pool listed as a chain, so its plan stakes BTC for B2 rewards; Firelight is the underwriting side of a cover design listed as insurance, so its plan stakes FXRP for stXRP; Mezo Earn locks BTC for a veBTC vote, not USDC in a governance vault; Abstract is its own Ethereum L2, not Ethereum mainnet, so its plan runs on Abstract; USDD\u2019s vaults take TRX, USDT or WBTC as collateral, never USDC, and its yield comes from sUSDD; DeFi Saver is a management layer that takes no deposits, so its plan opens a position through it and automates it; Bittensor dTAO is a staking system, not an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points program, so its plan checks the rewards page that pays in pUSD instead of a claim page. Thirteen more joined them in radar-20: seven CDP plans named USDC as collateral where the vaults take something else — Felix takes HYPE to mint feUSD, Bucket takes SUI to mint BUCK, BIMA and BTCFi take BTC to mint USBD and BtcUSD, Kava Mint takes BTC to mint USDX, Monolith takes ETH to borrow Coin, and Swan DAO takes wstETH to mint swanUSD — and six more shapes named the wrong asset: Avant avETH mints against ETH, not USDC; Origami\u2019s leveraged vaults take the yield-bearing asset itself, USDe; Boros margin is the market\u2019s own asset, ETH; Granite takes sBTC as collateral and lends USDCx; Solv Strategies takes BTC for SolvBTC; and Exponent Yield Exchange is an exchange, not a vault, so its plan swaps a yield-bearing asset for its principal token instead of depositing USDC. Three more joined them in radar-21: the two Exponent rows the last round left alone — Risk Tranching\u2019s first and largest market is ONyc, so its plan deposits ONyc into the senior tranche for srONyc LP shares, and Strategy Vaults\u2019 largest vault is the RockawayX-managed onycSOL vault, so its plan deposits SOL — and Figure Markets Prime, where the lending shape\u2019s borrow-against-your-supply is wrong on either side, so its plan lends USDC into a Democratized Prime pool instead. Two more joined them in radar-22, and one of those three is refined: Native Credit Pool is a single-sided supply pool for market makers, so its plan supplies USDC and earns the borrow interest instead of borrowing against a deposit; BounceBit Prime is institutional-only with KYC, so its plan starts with qualified-investor onboarding; and Figure Markets Prime\u2019s USDC goes to a margin pool, not the YLDS HELOC pool, which takes YLDS. The eighth CDP row, STRATO, stays on the generic wording because its own litepaper lists USDC as an accepted CDP collateral at 90% LTV. The scoring never names a protocol; these twenty-six are plan corrections, not a hardcoded ranking.' }),
       el('div', { class: 'formula' },
-        'multiple = exp((peers x ln(categoryMedian) + ' + m.shrink_peers + ' x ln(marketMedian)) / (peers + ' + m.shrink_peers + ')), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap + ']'
+        'multiple = exp(' + c.intercept.toFixed(4) + ') x TVL^(' + (c.slope - 1).toFixed(4) + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap.toFixed(2) + ']'
       ),
       el('div', { class: 'formula' },
         'implied = round( tvl_usd x multiple x (1 + clamp(change_7d, ' + m.growth_floor + ', ' + m.growth_cap + ') / 100 x ' + m.growth_weight + ') x (' + m.maturity_floor + ' + min(age_days, ' + m.maturity_days + ') / ' + m.maturity_days + ' x ' + m.maturity_range + ') x (1 + ' + m.breadth_step + ' x min(chains - 1, ' + m.breadth_max_chains + ')) x quality )'
       ),
-      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the early radar: they are a token that already trades, in another wrapper. Their tokens are left out of the comparables too: a bridge token market cap prices the bridge business, not the value locked in it, so the market median is the median of the live-token protocols in the categories the board ranks. ' + DATA.excluded.total + ' pre-token protocols are set aside that way (' + excludedText + ').' + saturnText + ' "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
+      el('p', { class: 'sub', text: 'TVL and seven-day growth come from the snapshot. Age is the time since the protocol was first listed, the record of how long it has run with no token; an unlisted age uses ' + m.unknown_age_days + ' days. Quality is ' + m.unknown_growth_discount + ' when seven-day growth is unreported and 1.00 otherwise: missing evidence is a small discount, never a free pass. Wrapped, staked, restaked, bridged and exchange products are left out of the early radar: they are a token that already trades, in another wrapper. Their tokens are left out of the comparables too: a bridge token market cap prices the bridge business, not the value locked in it, so the curve is fitted on the ' + c.comps + ' live-token protocols in the categories the board ranks. In total 342 protocols record no token: ' + DATA.board_size + ' are ranked here and ' + DATA.excluded.total + ' pre-token protocols are set aside that way (' + excludedText + ').' + saturnText + ' "Records no token" is what the snapshot says; it is not proof a protocol has no token.' })
     );
   }
 
-  function peersPanel() {
-    var entries = Object.keys(DATA.multiples).sort().map(function (k) { return [k, DATA.multiples[k]]; });
-    var tbody = el('tbody');
-    entries.forEach(function (e) {
-      var peers = DATA.peers ? (DATA.peers[e[0]] || 0) : 0;
-      var raw = DATA.raw_multiples ? DATA.raw_multiples[e[0]] : null;
-      // A multiple sitting on the model's bound says so outright: a reader
-      // who sees Prediction Market's raw 400.20x next to a used 0.8000x
-      // should not have to infer that the cap bound it, and a reader who
-      // sees Staking Pool's 0.0500x should see the floor did the same.
-      var read = e[1] >= DATA.model.multiple_cap ? 'at the model cap: the raw median exceeds the bound'
-        : e[1] <= DATA.model.multiple_floor ? 'at the model floor: the raw median is below the bound'
-        : peers === 0 ? 'no live peer: market median'
-        : peers < 3 ? 'thin evidence: shrunk toward the market'
-        : 'median live mcap / TVL in this category';
-      tbody.appendChild(el('tr', null,
-        el('td', null, el('b', { text: e[0] })),
-        el('td', { class: 'num', text: e[1].toFixed(4) + 'x' }),
-        el('td', { class: 'num', text: String(peers) }),
-        el('td', { class: 'num', text: raw === null || raw === undefined ? 'n/a' : raw.toFixed(4) + 'x' }),
+  function sizeCurvePanel() {
+    var bands = el('tbody');
+    DATA.size_bands.forEach(function (b) {
+      bands.appendChild(el('tr', null,
+        el('td', { class: 'num', text: fmtUsd(b.tvl_usd) }),
+        el('td', { class: 'num', text: b.multiple.toFixed(4) + 'x' })
+      ));
+    });
+    var resids = el('tbody');
+    DATA.category_residuals.forEach(function (r) {
+      // A residual is the category's median log gap from the curve: a
+      // positive one trades rich against the curve, a negative one cheap.
+      // Single-peer categories swing widest — Chain at +2.00 and Collateral
+      // Management at +3.49 are one live peer each — which is why offsets
+      // fitted on them make the held-out error worse instead of better.
+      var read = r.peers === 1 ? 'one live peer: the residual is that peer alone'
+        : Math.abs(r.median_residual) < 0.2 ? 'trades about on the curve'
+        : r.median_residual > 0 ? 'trades rich against the curve' : 'trades cheap against the curve';
+      resids.appendChild(el('tr', null,
+        el('td', null, el('b', { text: r.category })),
+        el('td', { class: 'num', text: String(r.peers) }),
+        el('td', { class: 'num', text: (r.median_residual > 0 ? '+' : '') + r.median_residual.toFixed(2) }),
         el('td', { class: 'num', text: read })
       ));
     });
     return el('section', { class: 'panel peers' },
-      el('h2', { text: 'Category comparables' }),
-      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by category. The market median is ' + DATA.market_multiple.toFixed(4) + 'x; a category with fewer than three live peers is shrunk toward it, so one peer never sets a price on its own.' }),
+      el('h2', { text: 'The size curve' }),
+      el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by size — not by category. The multiple falls as TVL rises, because market cap grows slower than TVL: log(mcap) = ' + DATA.curve.intercept.toFixed(2) + ' + ' + DATA.curve.slope.toFixed(2) + ' x log(TVL) on the ' + DATA.curve.comps + ' comparables. A $5M protocol prices near 0.80x; a $2.76B one near 0.02x.' }),
       el('div', { class: 'table-wrap' },
         el('table', null,
-          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Multiple used' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Raw median' }), el('th', { scope: 'col', text: 'How it is read' }))),
-          tbody
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'TVL' }), el('th', { scope: 'col', text: 'Multiple' }))),
+          bands
+        )
+      ),
+      el('h2', { text: 'Categories against the curve' }),
+      el('p', { class: 'sub', text: 'Each category\'s median log gap from the curve. These are shown, not used: adding them as offsets was tested out of sample and made the held-out error worse at every shrinkage weight, so the curve carries no category term.' }),
+      el('div', { class: 'table-wrap' },
+        el('table', null,
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Median log residual' }), el('th', { scope: 'col', text: 'How it is read' }))),
+          resids
         )
       )
     );
@@ -527,19 +557,20 @@
         el('div', null, el('span', { text: 'TVL' }), el('b', { class: 'num', text: fmtUsd(row.tvl_usd) })),
         el('div', null, el('span', { text: 'Seven-day growth' }), el('b', { class: 'num', text: fmtPct(row.change_7d) })),
         el('div', null, el('span', { text: 'Age with no token' }), el('b', { class: 'num', text: row.age_days === null ? 'unknown (scored as 1y)' : fmtAge(row.age_days) })),
-        el('div', { class: 'wide' }, el('span', { text: 'Category multiple' }), el('b', { class: 'num', text: row.category_multiple.toFixed(4) + 'x (' + (row.comparable_peers === 0 ? 'no live peer; market median' : row.comparable_peers === 1 ? '1 live peer; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers < 3 ? row.comparable_peers + ' live peers; shrunk toward the ' + DATA.market_multiple.toFixed(4) + 'x market median' : row.comparable_peers + ' live peers') + ')' + (row.category_multiple >= DATA.model.multiple_cap ? ' — at the ' + DATA.model.multiple_cap.toFixed(2) + 'x cap' : row.category_multiple <= DATA.model.multiple_floor ? ' — at the ' + DATA.model.multiple_floor.toFixed(2) + 'x floor' : '') })),
+        el('div', { class: 'wide' }, el('span', { text: 'Size multiple' }), el('b', { class: 'num', text: row.curve_multiple.toFixed(4) + 'x (fitted curve at ' + fmtUsd(row.tvl_usd) + ' of TVL, ' + row.fit_comps + ' comparables)' + (row.curve_multiple >= DATA.model.multiple_cap ? ' — at the ' + DATA.model.multiple_cap.toFixed(2) + 'x cap' : row.curve_multiple <= DATA.model.multiple_floor ? ' — at the ' + DATA.model.multiple_floor.toFixed(2) + 'x floor' : '') })),
         el('div', null, el('span', { text: 'Growth multiplier' }), el('b', { class: 'num', text: String(row.growth_multiplier) + (row.change_7d !== null && row.change_7d !== undefined && row.change_7d > DATA.model.growth_cap ? ' — at the +' + DATA.model.growth_cap + '% cap' : row.change_7d !== null && row.change_7d !== undefined && row.change_7d < DATA.model.growth_floor ? ' — at the ' + DATA.model.growth_floor + '% floor' : '') })),
         el('div', null, el('span', { text: 'Maturity multiplier' }), el('b', { class: 'num', text: String(row.maturity_multiplier) + (row.age_days !== null && row.age_days !== undefined && row.age_days > DATA.model.maturity_days ? ' — capped at ' + (DATA.model.maturity_days / 365) + 'y' : '') })),
         el('div', null, el('span', { text: 'Breadth multiplier' }), el('b', { class: 'num', text: String(row.breadth_multiplier) })),
         el('div', null, el('span', { text: 'Quality multiplier' }), el('b', { class: 'num', text: String(row.quality_multiplier) })),
-        el('div', { class: 'big' }, el('span', { text: 'Implied value' }), el('b', { class: 'num', text: fmtUsd(row.implied_value_usd) }))
+        el('div', { class: 'big' }, el('span', { text: 'Implied value' }), el('b', { class: 'num', text: fmtUsd(row.implied_value_usd) })),
+        el('div', { class: 'wide' }, el('span', { text: 'Uncertainty (200 bootstrap refits)' }), el('b', { class: 'num', text: fmtUsd(row.implied_p10_usd) + ' – ' + fmtUsd(row.implied_p90_usd) + ' · rank ' + row.rank_p10 + '–' + row.rank_p90 }))
       ),
-      el('p', { class: 'verify', html: 'Model ' + DATA.model_version + ': the page recomputes this row as <b>' + fmtUsd(recomputed) + '</b>' + (recomputed === row.implied_value_usd ? ', the same number board.json carries.' : ', which differs from the board: the data would be stale.') + ' This is an estimate from the snapshot, not a price and not a prediction that a token launches.' })
+      el('p', { class: 'verify', html: 'Model ' + DATA.model_version + ': the page recomputes this row as <b>' + fmtUsd(recomputed) + '</b>' + (recomputed === row.implied_value_usd ? ', the same number board.json carries.' : ', which differs from the board: the data would be stale.') + ' The P10-P90 range is the curve refitted 200 times on resamples of the ' + row.fit_comps + ' comparables.' })
     ));
     if (peers.length > 0) {
       dialog.appendChild(el('section', { class: 'detail-section' },
-        el('h3', { text: 'Live comparables in ' + (row.category || 'this category') }),
-        el('p', { class: 'sub', text: peers.map(function (l) { return l.name + ' trades at ' + (l.multiple === null ? 'n/a' : l.multiple.toFixed(2) + 'x') + ' mcap / TVL (' + fmtUsd(l.mcap_usd) + ' on ' + fmtUsd(l.tvl_usd) + ')'; }).join('; ') + '.' })
+        el('h3', { text: 'Live tokens in ' + (row.category || 'this category') }),
+        el('p', { class: 'sub', text: peers.map(function (l) { return l.name + ' trades at ' + (l.multiple === null ? 'n/a' : l.multiple.toFixed(2) + 'x') + ' mcap / TVL (' + fmtUsd(l.mcap_usd) + ' on ' + fmtUsd(l.tvl_usd) + ')'; }).join('; ') + '. These are context, not the price: the multiple above comes from the fitted size curve.' })
       ));
     }
     dialog.appendChild(el('section', { class: 'detail-section' },
@@ -569,7 +600,7 @@
     shell.appendChild(state.tab === 'pre-token' ? boardTable() : liveTable());
     if (state.tab === 'pre-token') {
       shell.appendChild(modelPanel());
-      shell.appendChild(peersPanel());
+      shell.appendChild(sizeCurvePanel());
     }
     shell.appendChild(el('p', { class: 'foot', text: 'Source: DefiLlama protocol index, snapshot ' + DATA.as_of + '. Implied values are this entry\u2019s own model, computed from the snapshot at run time. Farm steps name costs and times; gas moves, so treat them as the plan\u2019s budget, not a quote.' }));
     app.appendChild(shell);
