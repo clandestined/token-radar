@@ -67,6 +67,30 @@
 //   rank over those refits. A row whose range is wide is a row the curve
 //   does not pin down, and the page says so instead of hiding it.
 //
+//   Family-held-out (radar-27): the curve fitted without a whole protocol
+//   family and tested on it, pooled x3.41 against the flat median's
+//   x4.78, and leave-one-category-out x3.58 against x4.91 — the curve
+//   generalises across families and is not carried by one of them. It is
+//   not uniform: Lending & credit held out is x6.16 against the median's
+//   x4.96, the one family where the curve loses, and Trading held out is
+//   underpredicted by a median log error of -1.16. No fix follows: a
+//   category offset cannot be fitted for a family the fit never saw, and
+//   offsets, Huber and Theil-Sen fits and a trimmed fit were all
+//   re-tested this round and fail the full out-of-sample battery (see
+//   evaluateFamilyHeldOut). The family numbers are published instead.
+//
+//   Farm economics (radar-27): each row carries its farm audited to the
+//   dollar — the capital the plan deploys, the gas its own cost lines add
+//   up to, the T-bill opportunity cost of locking that capital (3-month
+//   bill 4.32% a year, read 2026-11-13), the sunk total, the hands-on
+//   time, and a FARM / THIN / SKIP verdict at the row's P10 low end. The
+//   verdict is the sunk cost as a share of P10: the share of the token
+//   supply a farmer's allocation would have to be for the farm to pay
+//   for itself. The snapshot carries no farmer allocation share, so no
+//   verdict can promise a profit — the share is shown beside every
+//   verdict, and the one row whose costs are in BTC, not dollars
+//   (Mezo Earn), carries CHECK instead of a verdict.
+//
 // Why this shape: a token's launch value is anchored on what the market
 // already pays for the same kind of business (the fitted size curve),
 // then moved by the protocol's own momentum (7-day TVL growth), its
@@ -133,7 +157,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-26';
+export const MODEL_VERSION = 'radar-27';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -143,6 +167,45 @@ export interface FarmStep {
   text: string;
   cost: string;
   time: string;
+}
+
+/** The 3-month US Treasury bill rate the farm economics nets against, as an annual fraction, and the day it was read (US Treasury daily par yield curve). */
+export const TBILL_RATE = 0.0432;
+export const TBILL_AS_OF = '2026-11-13';
+
+/**
+ * One row's farm economics, audited to the dollar: the capital the plan
+ * deploys, the gas the plan's own cost lines add up to, the T-bill
+ * opportunity cost of locking that capital for the hold, the sunk total,
+ * the hands-on time, and the verdict. The verdict is judged at the low
+ * end of the row's range (its P10 implied value): the break-even share is
+ * the sunk cost as a share of that P10 — the share of the token supply a
+ * farmer's eventual allocation would have to be for the farm to pay for
+ * itself. FARM below 0.0005%, THIN from 0.0005% to 0.001%, SKIP above
+ * 0.001%: the board's own rule of thumb, stated here, not a promise —
+ * the snapshot carries no farmer allocation share, so no row's verdict
+ * can promise a profit, and the break-even share is shown beside every
+ * verdict so the reader can see how little of the token each farm needs.
+ * On this snapshot the verdicts split 111 FARM, 65 THIN, 18 SKIP, and one
+ * CHECK. Gas is the plan's own cost lines summed at their stated upper
+ * bounds ($3 to open the wallet, $4 of gas to act, $8 where the capital
+ * is $250, $2 a week for each week of the hold, $3 to claim and exit);
+ * the opportunity cost is capital x 4.32% x hold / 365. Capital is not a
+ * cost — it comes back when the position unwinds — so it is shown apart
+ * from the sunk total. Mezo Earn is the CHECK: its capital is 0.01 BTC
+ * and its action gas is BTC, and the snapshot carries no BTC price, so
+ * no dollar total or verdict is stated for it.
+ */
+export interface FarmEconomics {
+  capital_usd: number | null;
+  capital_label: string;
+  hold_days: number;
+  gas_usd: number | null;
+  opportunity_usd: number | null;
+  sunk_usd: number | null;
+  hands_on_minutes: number;
+  breakeven_pct: number | null;
+  verdict: 'FARM' | 'THIN' | 'SKIP' | 'CHECK';
 }
 
 /** One row of board.json: the ranked board's row. */
@@ -203,6 +266,7 @@ export interface RadarRow {
   breadth_multiplier: number;
   quality_multiplier: number;
   farm_steps: string[];
+  farm_economics: FarmEconomics;
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value, not a model's. */
@@ -245,9 +309,20 @@ export interface RadarData {
     /** Median LOOCV log error by TVL third (small, mid, large), curve then flat median: the size bias each model carries. */
     loocv_bias_curve: number[];
     loocv_bias_median: number[];
+    /** Held out by protocol family and by category: the curve fitted without a whole family, tested on it. */
+    family_heldout: {
+      pooled_curve: number;
+      pooled_median: number;
+      pooled_bias_curve: number;
+      loco_curve: number;
+      loco_median: number;
+      families: { family: string; peers: number; curve: number; median: number; bias_curve: number }[];
+    };
   };
   /** The curve's multiple at a spread of TVLs, so the page can show the size effect as a table. */
   size_bands: { tvl_usd: number; multiple: number }[];
+  /** The T-bill baseline the farm economics nets against. */
+  tbill: { rate: number; as_of: string };
   /** Each category's median log residual from the curve: tested as offsets, not used. */
   category_residuals: { category: string; peers: number; median_residual: number }[];
   /** The comparables the curve is fitted on, as [tvl_usd, mcap_usd] pairs: the page refits from these. */
@@ -554,6 +629,147 @@ export function evaluateOos(snapshot: Snapshot, model: ModelConstants): {
     folds: 5,
     loocv_bias_curve: biasOf('curve'),
     loocv_bias_median: biasOf('median'),
+    family_heldout: evaluateFamilyHeldOut(snapshot, model),
+  };
+}
+
+/**
+ * Protocol families: each comparable category grouped by the broad
+ * function its name states, so the curve can be held out by family
+ * rather than by one protocol or one date. Lending & credit is Lending,
+ * CDP and Collateral Management; Trading is Dexs, Derivatives, Basis
+ * Trading, Options and Prediction Market; Yield & vaults is Yield, Yield
+ * Aggregator, Onchain Capital Allocator, Leveraged Farming, Risk
+ * Curators and Liquidity Manager; RWA & stable is RWA and Dual-Token
+ * Stablecoin; Chain & staking is Chain, Staking Pool and Restaking;
+ * every other category is Other. The grouping is the test's own
+ * definition, stated here and on the page, and the per-family numbers
+ * are published beside it.
+ */
+export const FAMILY_OF_CATEGORY: Record<string, string> = {
+  Lending: 'Lending & credit',
+  CDP: 'Lending & credit',
+  'Collateral Management': 'Lending & credit',
+  Dexs: 'Trading',
+  Derivatives: 'Trading',
+  'Basis Trading': 'Trading',
+  Options: 'Trading',
+  'Prediction Market': 'Trading',
+  Yield: 'Yield & vaults',
+  'Yield Aggregator': 'Yield & vaults',
+  'Onchain Capital Allocator': 'Yield & vaults',
+  'Leveraged Farming': 'Yield & vaults',
+  'Risk Curators': 'Yield & vaults',
+  'Liquidity Manager': 'Yield & vaults',
+  RWA: 'RWA & stable',
+  'Dual-Token Stablecoin': 'RWA & stable',
+  Chain: 'Chain & staking',
+  'Staking Pool': 'Chain & staking',
+  Restaking: 'Chain & staking',
+};
+
+/** The family a comparable's category puts it in. */
+export function familyOf(category: string): string {
+  return FAMILY_OF_CATEGORY[category] ?? 'Other';
+}
+
+/**
+ * The family-held-out test of the size curve: the curve fitted without a
+ * whole protocol family, tested on that family, and the same test one
+ * category at a time (leave-one-category-out). On this snapshot the
+ * pooled family-held-out error is x3.41 for the curve against x4.78 for
+ * the flat median, and leave-one-category-out is x3.58 against x4.91:
+ * the curve generalises across families, it is not carried by one of
+ * them. It is not uniform: Lending & credit held out is x6.16 for the
+ * curve against x4.96 for the median — the one family where the curve
+ * loses — and Trading is underpredicted when held out (median log error
+ * -1.16, about a factor of 3.2), while Yield & vaults is overpredicted
+ * (+0.54). No snapshot-justified fix follows from that: a category
+ * offset cannot be fitted for a family the fit never saw, and offsets
+ * re-tested this round still fail the full battery (a median-residual
+ * offset at weight 0.25 improves leave-one-out alone, x3.28 to x3.17,
+ * but worsens the time split, x2.15 to x2.38, and 5-fold, x3.31 to
+ * x3.49, and its paired bootstrap interval covers zero — the
+ * leave-one-out gain is noise). Robust fits fail the same way: Huber
+ * x3.29 / x2.22 / x3.45, Theil-Sen x3.53 / x2.22 / x3.49, and a fit
+ * trimmed of the twelve |log residual| > 3 comparables x3.41 / x2.50 /
+ * x3.68, each worse than the plain curve on at least two of the three
+ * splits. So the curve stays as fitted, and the family numbers are
+ * published instead of patched over: the weakness is disclosed, with
+ * the per-family bias, rather than hidden behind a term the splits do
+ * not support. The extremes that drive the family errors are the
+ * snapshot's own mismatches of token to TVL — Rain's token prices
+ * 400x its $6.6M of TVL, Aave V2's token prices the whole of Aave
+ * against a v2 slice — and the snapshot names no scope to correct
+ * them by, so no comp is dropped for being extreme.
+ */
+export function evaluateFamilyHeldOut(
+  snapshot: Snapshot,
+  model: ModelConstants,
+): {
+  pooled_curve: number;
+  pooled_median: number;
+  pooled_bias_curve: number;
+  loco_curve: number;
+  loco_median: number;
+  families: { family: string; peers: number; curve: number; median: number; bias_curve: number }[];
+} {
+  const comps = compSet(snapshot);
+  const predictCurve = (c: Comp, train: Comp[]): number => {
+    const fit = fitSizeCurve(train);
+    const f = rowFactor(c.change7d, c.age, c.chains, model);
+    return Math.max(1, Math.round(c.tvl * curveMultiple(fit, c.tvl, model) * f.growthMult * f.maturityMult * f.breadthMult * f.qualityMult));
+  };
+  const predictMedian = (c: Comp, train: Comp[]): number => {
+    const f = rowFactor(c.change7d, c.age, c.chains, model);
+    return Math.max(1, Math.round(c.tvl * medianMultiple(train, c.category, model) * f.growthMult * f.maturityMult * f.breadthMult * f.qualityMult));
+  };
+  const errFactorOf = (errs: number[]): number => errorFactor(errs);
+  // Leave-one-family-out, per family and pooled.
+  const byFamily = new Map<string, Comp[]>();
+  for (const c of comps) {
+    const list = byFamily.get(familyOf(c.category)) ?? [];
+    list.push(c);
+    byFamily.set(familyOf(c.category), list);
+  }
+  const pooledCurve: number[] = [];
+  const pooledMedian: number[] = [];
+  const families: { family: string; peers: number; curve: number; median: number; bias_curve: number }[] = [];
+  for (const [family, members] of [...byFamily.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
+    const train = comps.filter((c) => familyOf(c.category) !== family);
+    const ec = members.map((c) => Math.log(predictCurve(c, train) / c.mcap));
+    const em = members.map((c) => Math.log(predictMedian(c, train) / c.mcap));
+    pooledCurve.push(...ec);
+    pooledMedian.push(...em);
+    families.push({
+      family,
+      peers: members.length,
+      curve: errFactorOf(ec),
+      median: errFactorOf(em),
+      bias_curve: Math.round((median(ec) ?? 0) * 100) / 100,
+    });
+  }
+  // Leave-one-category-out, pooled.
+  const byCategory = new Map<string, Comp[]>();
+  for (const c of comps) {
+    const list = byCategory.get(c.category) ?? [];
+    list.push(c);
+    byCategory.set(c.category, list);
+  }
+  const locoCurve: number[] = [];
+  const locoMedian: number[] = [];
+  for (const [category, members] of byCategory) {
+    const train = comps.filter((c) => c.category !== category);
+    locoCurve.push(...members.map((c) => Math.log(predictCurve(c, train) / c.mcap)));
+    locoMedian.push(...members.map((c) => Math.log(predictMedian(c, train) / c.mcap)));
+  }
+  return {
+    pooled_curve: errFactorOf(pooledCurve),
+    pooled_median: errFactorOf(pooledMedian),
+    pooled_bias_curve: Math.round((median(pooledCurve) ?? 0) * 100) / 100,
+    loco_curve: errFactorOf(locoCurve),
+    loco_median: errFactorOf(locoMedian),
+    families,
   };
 }
 
@@ -1492,6 +1708,62 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   ];
 }
 
+/** A dollar amount rounded to cents, or null where no dollar figure exists. */
+const round2 = (n: number): number => Math.round(n * 100) / 100;
+
+/**
+ * One row's farm economics, from the plan's own cost lines and the
+ * row's own figures — nothing else. Capital is capitalFor of the TVL;
+ * the hold is the plan's hold (a correction's hold where the protocol's
+ * own lock caps it); gas sums the plan's cost lines at their stated
+ * upper bounds ($3 to open the wallet, $4 of gas to act, $8 where the
+ * capital is $250, $2 a week for each week of the hold, $3 to claim and
+ * exit), and is $0 where the chain charges no gas; the opportunity cost
+ * is the capital at the 3-month T-bill rate for the hold; the sunk total
+ * is gas plus opportunity cost, and the capital stays apart from it
+ * because it comes back when the position unwinds. Hands-on time is the
+ * plan's minutes added up (5 to open the wallet, 15 to act, 15 a week
+ * to tend and log it, 10 to check the claim, 15 to claim and exit). The
+ * break-even share is the sunk total as a percentage of the row's P10
+ * implied value, the low end of its range. Mezo Earn cannot be priced
+ * in dollars — its capital is 0.01 BTC and its action gas is BTC, and
+ * the snapshot carries no BTC price — so its dollar figures are null
+ * and its verdict is CHECK.
+ */
+export function farmEconomics(
+  slug: string,
+  tvlUsd: number,
+  chains: string[],
+  age: number | null,
+  impliedP10Usd: number,
+): FarmEconomics {
+  const correction = PLAN_CORRECTIONS[slug];
+  const chain = correction?.chainLabel ?? (chains.length > 0 ? chains[0]! : 'its main chain');
+  const gas = correction?.gasToken ?? gasTokenFor(chain);
+  const noGas = gas === null;
+  const capitalLabel = correction?.capitalLabel ?? `$${capitalFor({ tvl_usd: tvlUsd } as SnapshotProtocol)}`;
+  const capitalUsd = capitalLabel.startsWith('$') ? Number(capitalLabel.slice(1)) : null;
+  const hold = correction?.holdDays ?? holdDaysFor(age);
+  const weeks = Math.ceil(hold / 7);
+  const gasUsd = capitalUsd === null ? null : noGas ? 0 : 3 + (capitalUsd >= 250 ? 8 : 4) + 2 * weeks + 3;
+  const opportunityUsd = capitalUsd === null ? null : round2((capitalUsd * TBILL_RATE * hold) / 365);
+  const sunkUsd = gasUsd === null || opportunityUsd === null ? null : round2(gasUsd + opportunityUsd);
+  const breakevenPct = sunkUsd === null ? null : Math.round((sunkUsd / impliedP10Usd) * 100 * 1e6) / 1e6;
+  const verdict: FarmEconomics['verdict'] =
+    breakevenPct === null ? 'CHECK' : breakevenPct < 0.0005 ? 'FARM' : breakevenPct < 0.001 ? 'THIN' : 'SKIP';
+  return {
+    capital_usd: capitalUsd,
+    capital_label: capitalLabel,
+    hold_days: hold,
+    gas_usd: gasUsd,
+    opportunity_usd: opportunityUsd,
+    sunk_usd: sunkUsd,
+    hands_on_minutes: 45 + 15 * weeks,
+    breakeven_pct: breakevenPct,
+    verdict,
+  };
+}
+
 /** One live-token protocol in the dashboard's compact form. */
 function toLiveRow(p: SnapshotProtocol): LiveRow {
   return {
@@ -1594,6 +1866,7 @@ export function radarRow(row: BoardRow): RadarRow {
     breadth_multiplier: row.model.breadth_multiplier,
     quality_multiplier: row.model.quality_multiplier,
     farm_steps: row.farm_steps,
+    farm_economics: farmEconomics(row.slug, row.tvl_usd, row.chains, row.age_days, row.implied_p10_usd),
   };
 }
 
@@ -1640,6 +1913,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     curve: { intercept: fit.intercept, slope: fit.slope, comps: fit.n },
     oos,
     size_bands: sizeBands,
+    tbill: { rate: TBILL_RATE, as_of: TBILL_AS_OF },
     category_residuals: categoryResiduals,
     comps: comps.map((c) => [c.tvl, c.mcap] as [number, number]),
     rows: board.map(radarRow),

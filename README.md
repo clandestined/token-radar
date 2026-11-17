@@ -6,6 +6,50 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-27)
+
+Radar-27 keeps radar-26's model and every implied value: the board is
+byte-identical, and the change is falsifiability and farm economics.
+First, the curve is now held out by protocol family as well as by time
+and by leave-one-out: fitted without a whole family and tested on it, it
+misses by x3.41 against the flat median's x4.78, and one category at a
+time by x3.58 against x4.91, so the curve generalises across families
+and is not carried by one of them. It is not uniform, and the board says
+so: Lending & credit held out is x6.16 against the median's x4.96, the
+one family where the curve loses, Trading held out is underpredicted by a
+median log error of -1.16 (about a factor of 3.2), Yield & vaults
+overpredicted at +0.54, RWA & stable x1.76, Chain & staking x4.81, Other
+x3.19. The per-family table is on the board. No fix follows from that:
+a category offset cannot be fitted for a family the fit never saw, and
+three more candidates were tested this round and dropped on the full
+battery — a median-residual category offset at weight 0.25 improves
+leave-one-out alone (x3.28 to x3.17) but worsens the time split (x2.15
+to x2.38) and 5-fold (x3.31 to x3.49), and its paired bootstrap interval
+covers zero, so the leave-one-out gain is noise; a Huber robust fit is
+x3.29 / x2.22 / x3.45, Theil-Sen x3.53 / x2.22 / x3.49, and a fit trimmed
+of the twelve |log residual| > 3 comparables x3.41 / x2.50 / x3.68, each
+worse than the plain curve on at least two of the three splits. The
+extremes that drive the family errors are the snapshot's own mismatches
+of token to TVL — Rain's token prices 400x its $6.6M of TVL, Aave V2's
+token prices the whole of Aave against a v2 slice — and the snapshot
+names no scope to correct them by, so no comp is dropped for being
+extreme. Second, every farm plan is now audited to the dollar in its
+detail view: the capital it deploys ($50 / $100 / $250 by TVL), the gas
+its own cost lines add up to ($3 to open the wallet, $4 of gas to act,
+$8 where the capital is $250, $2 a week for each week of the hold, $3
+to claim and exit), the T-bill opportunity cost of locking that capital
+(3-month bill 4.32% a year, read 2026-11-13), the sunk total, the
+hands-on time, and a FARM / THIN / SKIP verdict at the row's P10 low
+end. The verdict is the sunk cost as a share of P10 — the share of the
+token supply a farmer's allocation would have to be for the farm to pay
+for itself (FARM below 0.0005%, THIN to 0.001%, SKIP above; the split is
+111 / 65 / 18). The snapshot carries no farmer allocation share, so no
+verdict can promise a profit, and the share is shown beside every
+verdict; the one row whose costs are in BTC, not dollars (Mezo Earn:
+0.01 BTC of capital, BTC gas, no BTC price in the snapshot) carries
+CHECK instead of a verdict. An out-of-sample win on the snapshot's own
+tokens is evidence, not a guaranteed prize.
+
 ## The model (radar-26)
 
 Radar-26 replaces the model itself. The flat median multiple is gone:

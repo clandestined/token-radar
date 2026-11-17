@@ -1,4 +1,4 @@
-// Token Radar's dashboard (radar-26). It reads window.RADAR (written beside
+// Token Radar's dashboard (radar-27). It reads window.RADAR (written beside
 // dashboard/ by main.ts from the same board.json) and renders the ranked
 // board, the filters, a per-protocol detail view with the model's own
 // breakdown and the protocol's farm plan, and the live-token set kept apart.
@@ -475,6 +475,8 @@
       el('h2', { text: 'How implied value is computed' }),
       el('p', { class: 'sub', text: 'Every row is scored by one function of the snapshot figures. The scoring never special-cases a protocol name, and no row is hand-picked. The multiple is a fitted size curve, not a flat median: log(market cap) = ' + c.intercept.toFixed(2) + ' + ' + c.slope.toFixed(2) + ' x log(TVL), fitted by least squares on the ' + c.comps + ' live-token protocols whose market cap prices the same kind of business, and a protocol\'s multiple is exp(' + c.intercept.toFixed(2) + ') x TVL^(' + (c.slope - 1).toFixed(2) + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap.toFixed(2) + ']. The band is a guardrail, not a price: on this snapshot it never binds — the curve runs 0.80x at $5M of TVL to 0.02x at $2.76B.' + refitText }),
       el('p', { class: 'sub', text: 'The curve is tested out of sample, on the live tokens themselves, against the flat median multiple it replaces. Held out one at a time, the curve misses by a factor of x' + o.loocv_curve.toFixed(2) + ' against the median\'s x' + o.loocv_median.toFixed(2) + '; fitted on tokens listed before ' + o.time_split_cut + ' and tested on those listed after, x' + o.time_split_curve.toFixed(2) + ' against x' + o.time_split_median.toFixed(2) + '; in 5-fold splits, x' + o.five_fold_curve.toFixed(2) + ' against x' + o.five_fold_median.toFixed(2) + '. The flat median misprices by size: its held-out errors are ' + o.loocv_bias_median[0] + ', ' + o.loocv_bias_median[1] + ' and ' + o.loocv_bias_median[2] + ' in log terms across the small, middle and large thirds — it underpredicts the smallest third by a factor of ' + Math.exp(-o.loocv_bias_median[0]).toFixed(1) + ' and overpredicts the largest by ' + Math.exp(o.loocv_bias_median[2]).toFixed(1) + ' — while the curve\'s are ' + o.loocv_bias_curve[0] + ', ' + o.loocv_bias_curve[1] + ' and ' + o.loocv_bias_curve[2] + '. Category offsets were tested the same way and do not help: they make the held-out error worse at every shrinkage weight, so the curve carries no category term. Each row also carries its uncertainty: the curve refitted 200 times on bootstrap resamples of the 90 comparables, and the detail view shows the row\'s P10-P90 implied value and rank over those refits.' }),
+      el('p', { class: 'sub', text: 'The curve is also held out by protocol family — fitted without a whole family, tested on it: pooled x' + o.family_heldout.pooled_curve.toFixed(2) + ' against the median\'s x' + o.family_heldout.pooled_median.toFixed(2) + ', and one category at a time x' + o.family_heldout.loco_curve.toFixed(2) + ' against x' + o.family_heldout.loco_median.toFixed(2) + '. It is not uniform: Lending & credit held out is the one family where the curve loses to the median, and Trading held out is underpredicted by a median log error of -1.16. The family table below names every family. No category term was added to fix it: an offset cannot be fitted for a family the fit never saw, and offsets, robust fits and a trimmed fit re-tested this round still fail the full out-of-sample battery.' }),
+      el('p', { class: 'sub', text: 'Each farm plan is audited to the dollar in its detail view: the capital it deploys, the gas its own cost lines add up to, the T-bill opportunity cost of locking that capital (' + (DATA.tbill.rate * 100).toFixed(2) + '% a year on the 3-month bill, read ' + DATA.tbill.as_of + '), the sunk total, the hands-on time, and a FARM / THIN / SKIP verdict at the row\'s P10 low end. The verdict is the sunk cost as a share of P10 — the share of the token supply a farmer\'s allocation would have to be for the farm to pay for itself: FARM below 0.0005%, THIN to 0.001%, SKIP above. The snapshot carries no farmer allocation share, so no verdict promises a profit; the share is shown beside every verdict. Mezo Earn\'s costs are in BTC, not dollars, and the snapshot carries no BTC price, so it carries CHECK instead of a verdict.' }),
       el('p', { class: 'sub', text: 'Farm plans follow the protocol\u2019s category — except where the snapshot\u2019s own record mislabels the protocol, and then the plan follows the protocol\u2019s own documentation instead. Twenty-six plans are corrected that way, in one table in the code: Hive Protocol is B\u00b2 Hive, a BTC staking pool listed as a chain, so its plan stakes BTC for B2 rewards; Firelight is the underwriting side of a cover design listed as insurance, so its plan stakes FXRP for stXRP; Mezo Earn locks BTC for a veBTC vote, not USDC in a governance vault; Abstract is its own Ethereum L2, not Ethereum mainnet, so its plan runs on Abstract; USDD\u2019s vaults take TRX, USDT or WBTC as collateral, never USDC, and its yield comes from sUSDD; DeFi Saver is a management layer that takes no deposits, so its plan opens a position through it and automates it; Bittensor dTAO is a staking system, not an AMM pool, so its plan stakes TAO for alpha; and Polymarket runs no points program, so its plan checks the rewards page that pays in pUSD instead of a claim page. Thirteen more joined them in radar-20: seven CDP plans named USDC as collateral where the vaults take something else — Felix takes HYPE to mint feUSD, Bucket takes SUI to mint BUCK, BIMA and BTCFi take BTC to mint USBD and BtcUSD, Kava Mint takes BTC to mint USDX, Monolith takes ETH to borrow Coin, and Swan DAO takes wstETH to mint swanUSD — and six more shapes named the wrong asset: Avant avETH mints against ETH, not USDC; Origami\u2019s leveraged vaults take the yield-bearing asset itself, USDe; Boros margin is the market\u2019s own asset, ETH; Granite takes sBTC as collateral and lends USDCx; Solv Strategies takes BTC for SolvBTC; and Exponent Yield Exchange is an exchange, not a vault, so its plan swaps a yield-bearing asset for its principal token instead of depositing USDC. Three more joined them in radar-21: the two Exponent rows the last round left alone — Risk Tranching\u2019s first and largest market is ONyc, so its plan deposits ONyc into the senior tranche for srONyc LP shares, and Strategy Vaults\u2019 largest vault is the RockawayX-managed onycSOL vault, so its plan deposits SOL — and Figure Markets Prime, where the lending shape\u2019s borrow-against-your-supply is wrong on either side, so its plan lends USDC into a Democratized Prime pool instead. Two more joined them in radar-22, and one of those three is refined: Native Credit Pool is a single-sided supply pool for market makers, so its plan supplies USDC and earns the borrow interest instead of borrowing against a deposit; BounceBit Prime is institutional-only with KYC, so its plan starts with qualified-investor onboarding; and Figure Markets Prime\u2019s USDC goes to a margin pool, not the YLDS HELOC pool, which takes YLDS. The eighth CDP row, STRATO, stays on the generic wording because its own litepaper lists USDC as an accepted CDP collateral at 90% LTV. The scoring never names a protocol; these twenty-six are plan corrections, not a hardcoded ranking.' }),
       el('div', { class: 'formula' },
         'multiple = exp(' + c.intercept.toFixed(4) + ') x TVL^(' + (c.slope - 1).toFixed(4) + '), clamped to [' + m.multiple_floor + ', ' + m.multiple_cap.toFixed(2) + ']'
@@ -511,6 +513,21 @@
         el('td', { class: 'num', text: read })
       ));
     });
+    // The family-held-out table: the curve fitted without a whole family,
+    // tested on it, against the flat median on the same split. A negative
+    // bias underpredicts the family when it is held out, a positive one
+    // overpredicts it; Lending & credit is the one family where the curve
+    // loses to the median.
+    var fams = el('tbody');
+    DATA.oos.family_heldout.families.forEach(function (f) {
+      fams.appendChild(el('tr', null,
+        el('td', null, el('b', { text: f.family })),
+        el('td', { class: 'num', text: String(f.peers) }),
+        el('td', { class: 'num', text: 'x' + f.curve.toFixed(2) }),
+        el('td', { class: 'num', text: 'x' + f.median.toFixed(2) }),
+        el('td', { class: 'num', text: (f.bias_curve > 0 ? '+' : '') + f.bias_curve.toFixed(2) })
+      ));
+    });
     return el('section', { class: 'panel peers' },
       el('h2', { text: 'The size curve' }),
       el('p', { class: 'sub', text: 'What the market already pays per dollar of TVL, by size — not by category. The multiple falls as TVL rises, because market cap grows slower than TVL: log(mcap) = ' + DATA.curve.intercept.toFixed(2) + ' + ' + DATA.curve.slope.toFixed(2) + ' x log(TVL) on the ' + DATA.curve.comps + ' comparables. A $5M protocol prices near 0.80x; a $2.76B one near 0.02x.' }),
@@ -526,6 +543,14 @@
         el('table', null,
           el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Category' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Median log residual' }), el('th', { scope: 'col', text: 'How it is read' }))),
           resids
+        )
+      ),
+      el('h2', { text: 'Families held out' }),
+      el('p', { class: 'sub', text: 'The curve fitted without a whole protocol family, tested on that family: pooled x' + DATA.oos.family_heldout.pooled_curve.toFixed(2) + ' against the median\'s x' + DATA.oos.family_heldout.pooled_median.toFixed(2) + ' (bias ' + DATA.oos.family_heldout.pooled_bias_curve.toFixed(2) + '). Families group categories by the broad function their names state; the grouping is the test\'s own definition.' }),
+      el('div', { class: 'table-wrap' },
+        el('table', null,
+          el('thead', null, el('tr', null, el('th', { scope: 'col', text: 'Family' }), el('th', { scope: 'col', text: 'Live peers' }), el('th', { scope: 'col', text: 'Curve' }), el('th', { scope: 'col', text: 'Flat median' }), el('th', { scope: 'col', text: 'Curve bias' }))),
+          fams
         )
       )
     );
@@ -582,6 +607,24 @@
         return el('li', null, el('b', { text: action }), el('span', { class: 'cost', text: tail }));
       }))
     ));
+    // Farm economics, audited to the dollar from the plan's own cost
+    // lines: capital deployed, gas summed at the stated upper bounds,
+    // T-bill opportunity cost, the sunk total, hands-on time, and the
+    // verdict at the row's P10 low end. The verdict is the sunk cost as
+    // a share of P10 — the share of the token supply a farmer's
+    // allocation would have to be for the farm to pay for itself — and
+    // the snapshot carries no allocation share, so it promises no profit.
+    var fe = row.farm_economics;
+    if (fe) {
+      var econText = fe.verdict === 'CHECK'
+        ? 'The plan deploys ' + fe.capital_label + ' for ' + fe.hold_days + ' days and about ' + Math.round(fe.hands_on_minutes / 60 * 10) / 10 + ' hours hands-on, but its costs are in BTC, not dollars, and the snapshot carries no BTC price, so no dollar total or verdict is stated — price the BTC costs yourself before farming.'
+        : 'Capital ' + fmtUsd(fe.capital_usd) + ' locked for ' + fe.hold_days + ' days · gas $' + fe.gas_usd.toFixed(2) + ' · T-bill opportunity $' + fe.opportunity_usd.toFixed(2) + ' at ' + (DATA.tbill.rate * 100).toFixed(2) + '% a year · sunk $' + fe.sunk_usd.toFixed(2) + ' · about ' + Math.round(fe.hands_on_minutes / 60 * 10) / 10 + ' hours hands-on. At the low end (P10 ' + fmtUsd(row.implied_p10_usd) + ') the farm breaks even on about 1 part in ' + Math.round(100 / fe.breakeven_pct) + ' of the token supply (' + fe.breakeven_pct.toFixed(5) + '%) — verdict ' + fe.verdict + '.';
+      dialog.appendChild(el('section', { class: 'detail-section' },
+        el('h3', { text: 'Farm economics: ' + fe.verdict }),
+        el('p', { class: 'sub', text: econText }),
+        el('p', { class: 'sub', text: 'Capital is not a cost — it comes back when the position unwinds. Gas is the plan\'s own cost lines summed at their stated upper bounds; the T-bill is the 3-month bill, read ' + DATA.tbill.as_of + '.' })
+      ));
+    }
     if (typeof dialog.showModal === 'function') {
       if (!dialog.open) dialog.showModal();
     } else {
