@@ -79,17 +79,41 @@
 //   re-tested this round and fail the full out-of-sample battery (see
 //   evaluateFamilyHeldOut). The family numbers are published instead.
 //
-//   Farm economics (radar-27): each row carries its farm audited to the
-//   dollar — the capital the plan deploys, the gas its own cost lines add
-//   up to, the T-bill opportunity cost of locking that capital (3-month
-//   bill 4.32% a year, read 2026-11-13), the sunk total, the hands-on
-//   time, and a FARM / THIN / SKIP verdict at the row's P10 low end. The
-//   verdict is the sunk cost as a share of P10: the share of the token
-//   supply a farmer's allocation would have to be for the farm to pay
-//   for itself. The snapshot carries no farmer allocation share, so no
-//   verdict can promise a profit — the share is shown beside every
-//   verdict, and the one row whose costs are in BTC, not dollars
-//   (Mezo Earn), carries CHECK instead of a verdict.
+//   Farm economics (radar-27, corrected in radar-28): each row carries
+//   its farm audited to the dollar — the capital the plan deploys, the
+//   gas its own cost lines add up to, the T-bill opportunity cost of
+//   locking that capital (3-month bill 4.33% a year, read 2026-11-17),
+//   the sunk total, the hands-on time, and a FARM / THIN / SKIP verdict
+//   at the row's P10 low end. The verdict is the sunk cost as a share of
+//   P10: the share of the token supply a farmer's allocation would have
+//   to be for the farm to pay for itself. The snapshot carries no farmer
+//   allocation share, so no verdict can promise a profit — the share is
+//   shown beside every verdict, and the detail view also states it in
+//   dollars, as the allocation value the farm needs to break even, and
+//   the one row whose costs are in BTC, not dollars (Mezo Earn),
+//   carries CHECK instead of a verdict. Radar-28 corrects the audit
+//   on the 84 rows that list more than one chain: radar-27's step 4
+//   told them to repeat the deposit on a second chain while the audit
+//   counted one action, one weekly tend and one setup, so the sunk
+//   total understated the plan as written. Step 4 now moves half the
+//   deposit to the second chain instead — the same capital split
+//   across the two chains, not a second deposit — and the audit counts
+//   the move's gas, the extra weekly gas and time, and the extra setup:
+//   sunk totals on those rows rise $14 to $22, 46 verdicts move one
+//   step worse (28 FARM to THIN, 18 THIN to SKIP), the split is now
+//   83 / 75 / 36, and no single-chain row moves by a cent. The T-bill
+//   read is refreshed to 2026-11-17 (4.33%, from 4.32%): no row's sunk
+//   total moves by a cent on that alone.
+//
+//   Peer fallback (radar-28): thirteen categories have no live token
+//   at all, covering 17 rows, so their detail views showed no peer
+//   section. They now show the three live comparables nearest in TVL,
+//   under their own heading, because the multiple is a size curve and
+//   a live token of a similar size is the honest context where a
+//   same-category peer does not exist. A family fallback was rejected:
+//   all thirteen categories fall in the catch-all Other family, whose
+//   live categories share no function with them, so it would show a
+//   stranger, not a peer.
 //
 // Why this shape: a token's launch value is anchored on what the market
 // already pays for the same kind of business (the fitted size curve),
@@ -157,7 +181,7 @@ export const MODEL: ModelConstants = {
 };
 
 /** The model's version label: the dashboard names it. */
-export const MODEL_VERSION = 'radar-27';
+export const MODEL_VERSION = 'radar-28';
 
 /** How many live-token protocols the Live token view carries, by market cap. */
 export const LIVE_ROWS = 24;
@@ -170,8 +194,8 @@ export interface FarmStep {
 }
 
 /** The 3-month US Treasury bill rate the farm economics nets against, as an annual fraction, and the day it was read (US Treasury daily par yield curve). */
-export const TBILL_RATE = 0.0432;
-export const TBILL_AS_OF = '2026-11-13';
+export const TBILL_RATE = 0.0433;
+export const TBILL_AS_OF = '2026-11-17';
 
 /**
  * One row's farm economics, audited to the dollar: the capital the plan
@@ -186,11 +210,11 @@ export const TBILL_AS_OF = '2026-11-13';
  * the snapshot carries no farmer allocation share, so no row's verdict
  * can promise a profit, and the break-even share is shown beside every
  * verdict so the reader can see how little of the token each farm needs.
- * On this snapshot the verdicts split 111 FARM, 65 THIN, 18 SKIP, and one
+ * On this snapshot the verdicts split 83 FARM, 75 THIN, 36 SKIP, and one
  * CHECK. Gas is the plan's own cost lines summed at their stated upper
  * bounds ($3 to open the wallet, $4 of gas to act, $8 where the capital
  * is $250, $2 a week for each week of the hold, $3 to claim and exit);
- * the opportunity cost is capital x 4.32% x hold / 365. Capital is not a
+ * the opportunity cost is capital x 4.33% x hold / 365. Capital is not a
  * cost — it comes back when the position unwinds — so it is shown apart
  * from the sunk total. Mezo Earn is the CHECK: its capital is 0.01 BTC
  * and its action gas is BTC, and the snapshot carries no BTC price, so
@@ -267,6 +291,8 @@ export interface RadarRow {
   quality_multiplier: number;
   farm_steps: string[];
   farm_economics: FarmEconomics;
+  /** Fallback peers for a row whose category has no live token at all: the three live comparables nearest in TVL, shown under their own heading instead of a same-category peer that does not exist. Empty where the category has peers. */
+  peer_fallback: LiveRow[];
 }
 
 /** A live-token protocol: it already trades, so the board shows the market's own value, not a model's. */
@@ -1257,7 +1283,10 @@ function exitFor(p: SnapshotProtocol): string {
  * action itself, the weekly action, the number worth logging, the page that
  * would carry a claim and the way the position unwinds all differ between a
  * lender, a pool and a vault, so no two categories farm the same way. Every
- * category on the board has its own shape for each of those steps.
+ * category on the board has its own shape for each of those steps. Step 4
+ * splits the deposit across a second chain where the protocol lists one,
+ * and the economics counts the move: the same capital, not a second
+ * deposit, so the capital the plan deploys does not double.
  */
 
 /** One step of a corrected plan: the step's text, given the protocol, its capital and its network. */
@@ -1665,10 +1694,25 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const exit = correction?.exit ? correction.exit(p, capital, chain) : exitFor(p);
   const gas = correction?.gasToken ?? gasTokenFor(chain);
   const noGas = gas === null;
+  // A protocol that lists more than one chain farms on two of them, so
+  // its plan costs a second position as well as a first: the weekly
+  // action runs on both chains, and step 4 moves half the deposit to
+  // the second chain instead of depositing twice — the same capital
+  // split across the two chains, so the capital the plan deploys does
+  // not double, but the move itself costs gas and hands-on time, and
+  // the economics counts both. Radar-27's audit missed this: step 4
+  // told 84 rows to repeat the deposit on a second chain while the
+  // audit counted one action, one weekly tend and one setup, so the
+  // sunk total understated the plan as written by the move's gas, the
+  // extra weekly gas and the extra time on every one of those rows.
+  const multi = p.chains.length > 1;
+  const actGas = capital >= 250 ? 8 : 4;
   const walletStep = noGas
     ? `Open a fresh wallet for ${p.name} on ${chain}, where transactions carry no gas fee, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`
     : `Open a fresh wallet for ${p.name}, fund it with ${gas} for gas on ${chain}, keep its seed phrase offline on paper, and never reuse that seed phrase for another farm.`;
-  const others = p.chains.length > 1 ? ` Repeat the deposit on a second chain, ${p.chains[1]}, so the activity is not tied to one network.` : ` Use the protocol on ${chain} only, and do not split the position across networks it does not list.`;
+  const others = multi
+    ? ` Move half the deposit to a second chain, ${p.chains[1]}, so the activity is not tied to one network — the same capital split across the two chains, not a second deposit (allow 15 minutes to move it).`
+    : ` Use the protocol on ${chain} only, and do not split the position across networks it does not list.`;
   return [
     {
       text: walletStep,
@@ -1682,12 +1726,15 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
     },
     {
       text: `Use this wallet for ${p.name} alone, and ${weekly.charAt(0).toLowerCase()}${weekly.slice(1)}`,
-      cost: noGas ? 'nothing: transactions carry no gas fee' : 'about $2 of gas a week',
-      time: '10 minutes a week',
+      cost: noGas ? 'nothing: transactions carry no gas fee' : `about $${multi ? 4 : 2} of gas a week`,
+      time: multi ? '20 minutes a week' : '10 minutes a week',
     },
     {
       text: `Hold the ${p.name} position for at least ${hold} days so the activity is counted in more than one snapshot.${others}`,
-      cost: `the ${capitalLabel} stays in the position`,
+      cost:
+        multi && !noGas
+          ? `the ${capitalLabel} stays in the position, split across the two chains, plus about $${actGas} of gas to move half of it`
+          : `the ${capitalLabel} stays in the position`,
       time: `${hold} days`,
     },
     {
@@ -1723,12 +1770,19 @@ const round2 = (n: number): number => Math.round(n * 100) / 100;
  * is gas plus opportunity cost, and the capital stays apart from it
  * because it comes back when the position unwinds. Hands-on time is the
  * plan's minutes added up (5 to open the wallet, 15 to act, 15 a week
- * to tend and log it, 10 to check the claim, 15 to claim and exit). The
- * break-even share is the sunk total as a percentage of the row's P10
- * implied value, the low end of its range. Mezo Earn cannot be priced
- * in dollars — its capital is 0.01 BTC and its action gas is BTC, and
- * the snapshot carries no BTC price — so its dollar figures are null
- * and its verdict is CHECK.
+ * to tend and log it, 10 to check the claim, 15 to claim and exit). A
+ * protocol that lists more than one chain farms on two of them, so its
+ * plan splits the deposit across the two chains: the move itself costs
+ * the action's gas again ($4, $8 where the capital is $250), the weekly
+ * tend runs on both chains ($4 of gas a week and 20 minutes, not $2
+ * and 10), and the move takes 15 minutes to set up — gas 3 + act +
+ * act + 4 a week + 3, hands-on 60 + 25 a week — while the capital and
+ * the opportunity cost do not double, because the same capital is
+ * split, not deposited twice. The break-even share is the sunk total
+ * as a percentage of the row's P10 implied value, the low end of its
+ * range. Mezo Earn cannot be priced in dollars — its capital is 0.01
+ * BTC and its action gas is BTC, and the snapshot carries no BTC price
+ * — so its dollar figures are null and its verdict is CHECK.
  */
 export function farmEconomics(
   slug: string,
@@ -1745,7 +1799,14 @@ export function farmEconomics(
   const capitalUsd = capitalLabel.startsWith('$') ? Number(capitalLabel.slice(1)) : null;
   const hold = correction?.holdDays ?? holdDaysFor(age);
   const weeks = Math.ceil(hold / 7);
-  const gasUsd = capitalUsd === null ? null : noGas ? 0 : 3 + (capitalUsd >= 250 ? 8 : 4) + 2 * weeks + 3;
+  // A multi-chain row farms on two chains: the move to the second
+  // chain costs the action's gas again, and the weekly tend runs on
+  // both chains, so gas and hands-on time both count the second
+  // position. The capital does not double: the plan splits the same
+  // capital across the two chains, so the opportunity cost is unchanged.
+  const multi = chains.length > 1;
+  const actGas = capitalUsd !== null && capitalUsd >= 250 ? 8 : 4;
+  const gasUsd = capitalUsd === null ? null : noGas ? 0 : 3 + actGas + (multi ? actGas : 0) + (multi ? 4 : 2) * weeks + 3;
   const opportunityUsd = capitalUsd === null ? null : round2((capitalUsd * TBILL_RATE * hold) / 365);
   const sunkUsd = gasUsd === null || opportunityUsd === null ? null : round2(gasUsd + opportunityUsd);
   const breakevenPct = sunkUsd === null ? null : Math.round((sunkUsd / impliedP10Usd) * 100 * 1e6) / 1e6;
@@ -1758,7 +1819,7 @@ export function farmEconomics(
     gas_usd: gasUsd,
     opportunity_usd: opportunityUsd,
     sunk_usd: sunkUsd,
-    hands_on_minutes: 45 + 15 * weeks,
+    hands_on_minutes: multi ? 60 + 25 * weeks : 45 + 15 * weeks,
     breakeven_pct: breakevenPct,
     verdict,
   };
@@ -1811,16 +1872,9 @@ export function liveRows(snapshot: Snapshot): LiveRow[] {
     .map(toLiveRow);
 }
 
-/**
- * The live comparables each detail view names, by category: the three
- * biggest live-token protocols in the category, by market cap. The Live
- * token view only carries the top 24 live protocols by market cap, so a
- * category's peers (Api3 is the Risk Curators peer, at $35M) would never
- * appear in a detail view drawn from that list alone.
- */
-export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
-  const byCategory = new Map<string, LiveRow[]>();
-  const rows = snapshot.protocols
+/** The live comparables as rows, biggest market cap first: the population every peer list below is drawn from. */
+export function liveCompRows(snapshot: Snapshot): LiveRow[] {
+  return snapshot.protocols
     // The same population the comparables are priced from: a live token with
     // a market cap above zero that the snapshot records, in a category the
     // board ranks. Bridge, liquid-staking, liquid-restaking and wrapper
@@ -1832,6 +1886,18 @@ export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
     .filter((p) => !isPreToken(p) && !isExcludedCategory(p) && p.mcap_usd !== null && p.mcap_usd > 0 && p.tvl_usd > 0)
     .sort((a, b) => (b.mcap_usd ?? 0) - (a.mcap_usd ?? 0) || b.tvl_usd - a.tvl_usd)
     .map(toLiveRow);
+}
+
+/**
+ * The live comparables each detail view names, by category: the three
+ * biggest live-token protocols in the category, by market cap. The Live
+ * token view only carries the top 24 live protocols by market cap, so a
+ * category's peers (Api3 is the Risk Curators peer, at $35M) would never
+ * appear in a detail view drawn from that list alone.
+ */
+export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
+  const byCategory = new Map<string, LiveRow[]>();
+  const rows = liveCompRows(snapshot);
   for (const r of rows) {
     const key = r.category ?? 'Other';
     const list = byCategory.get(key) ?? [];
@@ -1841,8 +1907,38 @@ export function liveSamples(snapshot: Snapshot): Record<string, LiveRow[]> {
   return Object.fromEntries([...byCategory.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)));
 }
 
+/**
+ * The fallback peers for a board row whose category has no live token
+ * at all: the three live comparables nearest in TVL, nearest first. The
+ * multiple is a size curve, so a live token of a similar size is the
+ * honest context where a same-category peer does not exist — nearer in
+ * size than a token from another family would be in kind. Thirteen
+ * categories have no live peer (Collateral Markets, CDP Manager,
+ * Stablecoin Wrapper, OTC Marketplace, CeDeFi, Farm, Anchor BTC,
+ * Insurance, Governance Incentives, Crypto Card Issuer, Decentralized
+ * BTC, Uncollateralized Lending, Interest Rate Derivatives), covering
+ * 17 rows; their families are all the catch-all Other, whose live
+ * categories (AI Agents, Indexes, Token Locker and the rest) share no
+ * function with them, so a family fallback would show a stranger, not
+ * a peer. A category with even one live peer keeps that peer and gets
+ * no fallback.
+ */
+export function peerFallbacks(snapshot: Snapshot, board: BoardRow[]): Map<string, LiveRow[]> {
+  const comps = liveCompRows(snapshot);
+  const samples = liveSamples(snapshot);
+  const out = new Map<string, LiveRow[]>();
+  for (const row of board) {
+    if (samples[row.category ?? 'Other'] !== undefined) continue;
+    const near = [...comps]
+      .sort((a, b) => Math.abs(Math.log(row.tvl_usd / a.tvl_usd)) - Math.abs(Math.log(row.tvl_usd / b.tvl_usd)) || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0))
+      .slice(0, 3);
+    out.set(row.slug, near);
+  }
+  return out;
+}
+
 /** A board row's compact form for data.js, with the farm plan verbatim. */
-export function radarRow(row: BoardRow): RadarRow {
+export function radarRow(row: BoardRow, peerFallback: LiveRow[] = []): RadarRow {
   return {
     rank: row.rank,
     slug: row.slug,
@@ -1867,6 +1963,7 @@ export function radarRow(row: BoardRow): RadarRow {
     quality_multiplier: row.model.quality_multiplier,
     farm_steps: row.farm_steps,
     farm_economics: farmEconomics(row.slug, row.tvl_usd, row.chains, row.age_days, row.implied_p10_usd),
+    peer_fallback: peerFallback,
   };
 }
 
@@ -1898,6 +1995,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
   const categoryResiduals = [...residuals.entries()]
     .map(([category, list]) => ({ category, peers: list.length, median_residual: Math.round((median(list) ?? 0) * 1000) / 1000 }))
     .sort((a, b) => (a.category < b.category ? -1 : 1));
+  const fallbacks = peerFallbacks(snapshot, board);
   const radar: RadarData = {
     as_of: snapshot.as_of,
     source: snapshot.source,
@@ -1916,7 +2014,7 @@ export function buildRadar(snapshot: Snapshot, model: ModelConstants = MODEL): {
     tbill: { rate: TBILL_RATE, as_of: TBILL_AS_OF },
     category_residuals: categoryResiduals,
     comps: comps.map((c) => [c.tvl, c.mcap] as [number, number]),
-    rows: board.map(radarRow),
+    rows: board.map((r) => radarRow(r, fallbacks.get(r.slug) ?? [])),
     live,
     peer_samples: liveSamples(snapshot),
     excluded: excludedBreakdown(snapshot, board),

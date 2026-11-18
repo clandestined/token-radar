@@ -10,6 +10,58 @@ staked or bridged product of one that trades, ranks them by what their launch
 would be worth, and hands in a web dashboard with the board, a detail view
 for every protocol, filters, and a farm plan for each row.
 
+## The model (radar-28)
+
+Radar-28 keeps radar-26's model and every implied value: same 195
+rows, same ranks, same implied values, total $1,647,174,217. What moves
+is the farm audit, the peer context, and the freshness of the T-bill
+read. First, the audit: radar-27's step 4 told the 84 rows that list
+more than one chain to repeat the deposit on a second chain, while the
+audit counted one action, one weekly tend and one setup — so the sunk
+total understated the plan as written on every one of those rows. Step
+4 now moves half the deposit to the second chain instead: the same
+capital split across the two chains, not a second deposit, so the
+capital the plan deploys does not double, but the audit counts the
+move's gas, the extra weekly gas and time, and the extra setup. Sunk
+totals on those rows rise $14 to $22, 46 verdicts move one step worse
+(28 FARM to THIN, 18 THIN to SKIP), the split is now 83 / 75 / 36
+with Mezo Earn still the one CHECK, and no single-chain row moves by a
+cent. The detail view also states the break-even in dollars now: the
+allocation would have to be worth at least the sunk total. Second,
+thirteen categories have no live token at all, covering 17 rows, so
+their detail views showed no peer section; they now show the three live
+comparables nearest in TVL, under their own heading, because the
+multiple is a size curve and a live token of a similar size is the
+honest context where a same-category peer does not exist. A family
+fallback was rejected: all thirteen categories fall in the catch-all
+Other family, whose live categories share no function with them, so it
+would show a stranger, not a peer. Third, the T-bill read is refreshed
+to 2026-11-17 (3-month bill 4.33%, from 4.32% on 2026-11-13): no row's
+sunk total moves by a cent on that alone. The model itself was
+re-challenged this round and kept: a quadratic log-log fit is x3.46 /
+x2.14 / x3.44, a full OLS on TVL, age, chains and growth x3.85 / x2.00 /
+x3.89, a piecewise slope at the median TVL x3.23 / x4.43 / x3.56, a
+slope shrunk 25% toward 1 x3.16 / x2.73 / x3.32, family offsets at
+weight 0.25 x3.17 / x2.26 / x3.48 and at 1.0 x3.00 / x3.40 / x3.16, a
+category offset at 0.25 x3.31 / x2.38 / x3.63, and TVL-weighted fits
+x3.47 / x2.59 / x3.62 and x3.41 / x2.41 / x3.43 (LOOCV / time-split /
+5-fold, against the curve's x3.28 / x2.15 / x3.31) — none beats the
+curve on two of the three splits. Dropping the two most extreme
+comparables looks like an exception (x3.10 / x2.72 / x2.93) but is not:
+it wins the median-based LOOCV and 5-fold while the forward-looking
+time split blows out to x2.72, the gain is not stable across the
+trim size (top-3 x2.92 / x2.50 / x3.07, top-5 x2.99 / x2.46 / x3.30),
+and its paired bootstrap interval covers zero while the mean absolute
+log error gets worse, so it is noise on the median, not a better fit.
+An ablation confirms the factors the curve carries: the curve with no
+growth, maturity, breadth or quality factor is x3.62 / x2.14 / x3.58,
+and with growth alone x3.36 / x2.06 / x3.46. The screenshots were not
+retaken this round (no live browser on this machine): the detail
+screenshot still shows Steakhouse Financial with the old step-4
+wording and the radar-26 label, so it needs a browser retake before
+resubmission. An out-of-sample win on the snapshot's own tokens is
+evidence, not a guaranteed prize.
+
 ## The model (radar-27)
 
 Radar-27 keeps radar-26's model and every implied value: the board is
