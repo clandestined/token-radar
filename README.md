@@ -55,12 +55,7 @@ and its paired bootstrap interval covers zero while the mean absolute
 log error gets worse, so it is noise on the median, not a better fit.
 An ablation confirms the factors the curve carries: the curve with no
 growth, maturity, breadth or quality factor is x3.62 / x2.14 / x3.58,
-and with growth alone x3.36 / x2.06 / x3.46. The screenshots were not
-retaken this round (no live browser on this machine): the detail
-screenshot still shows Steakhouse Financial with the old step-4
-wording and the radar-26 label, so it needs a browser retake before
-resubmission. An out-of-sample win on the snapshot's own tokens is
-evidence, not a guaranteed prize.
+and with growth alone x3.36 / x2.06 / x3.46. The screenshots were retaken this round with headless Chrome at 1440x1440: the board shows ranks 1-9 with the radar-28 label, the detail view shows Steakhouse Financial with the new step-4 wording ("Move half the deposit to a second chain") and the radar-28 model line, and the filtered view shows Lending, 16 of 195 rows. An out-of-sample win on the snapshot's own tokens is evidence, not a guaranteed prize.
 
 ## The model (radar-27)
 
